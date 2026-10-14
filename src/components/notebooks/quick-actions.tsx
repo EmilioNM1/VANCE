@@ -7,10 +7,10 @@ import { api } from "@/lib/api";
 import { Button } from "../ui";
 import { useQuickPage } from "../app-nav";
 
-export function QuickPageButton({ variant = "primary" }: { variant?: "primary" | "quiet" }) {
+export function QuickPageButton({ variant = "primary", className }: { variant?: "primary" | "quiet" | "inverse"; className?: string }) {
   const { create, busy } = useQuickPage();
   return (
-    <Button variant={variant} size={variant === "quiet" ? "sm" : "lg"} onClick={create} loading={busy}>
+    <Button variant={variant} size={variant === "quiet" ? "sm" : "lg"} onClick={create} loading={busy} className={className}>
       {!busy && <Plus className="h-4 w-4" />} Nueva página
     </Button>
   );

@@ -54,7 +54,7 @@ export default async function ReviewsPage() {
               g.items.length ? (
                 <section key={g.key}>
                   <h2 className="mb-2 font-semibold">{g.title} <span className="text-muted">({g.items.length})</span></h2>
-                  <ul className="divide-y divide-line rounded-xl border border-line bg-surface">
+                  <ul className="divide-y divide-line rounded-2xl border border-line bg-surface shadow-card">
                     {g.items.map((a) => (
                       <li key={a.conceptId} className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>

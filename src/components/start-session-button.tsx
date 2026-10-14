@@ -27,7 +27,7 @@ export function StartSessionButton({
   types?: string[];
   size?: "sm" | "md" | "lg";
   children: React.ReactNode;
-  variant?: "primary" | "secondary" | "ghost" | "quiet";
+  variant?: "primary" | "secondary" | "ghost" | "quiet" | "inverse";
   className?: string;
 }) {
   const router = useRouter();

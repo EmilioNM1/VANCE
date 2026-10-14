@@ -23,7 +23,7 @@ export default async function LibraryPage() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {libs.map((l) => (
-            <Link key={l.id} href={`/app/library/${l.id}`} className="rounded-xl border border-line bg-surface p-5 transition hover:border-accent-300">
+            <Link key={l.id} href={`/app/library/${l.id}`} className="rounded-2xl border border-line bg-surface shadow-card p-5 transition hover:border-accent-300">
               <div className="flex items-start justify-between gap-2">
                 <p className="font-semibold">{l.name}</p>
                 {l.isDemo && <Badge tone="warning">Demo</Badge>}

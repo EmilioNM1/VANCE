@@ -12,7 +12,7 @@ export const KIND_LABEL: Record<string, string> = {
 
 /** Color de cada cuaderno (punto/lomo). */
 export const NOTEBOOK_DOT: Record<string, string> = {
-  teal: "bg-accent-500",
+  teal: "bg-teal-500",
   indigo: "bg-indigo-500",
   rose: "bg-rose-500",
   amber: "bg-amber-500",

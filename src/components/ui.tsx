@@ -4,18 +4,20 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 export { clsx };
 
-type Variant = "primary" | "secondary" | "ghost" | "danger" | "quiet";
+type Variant = "primary" | "secondary" | "ghost" | "danger" | "quiet" | "inverse";
 const variants: Record<Variant, string> = {
-  primary: "bg-accent-600 text-white hover:bg-accent-700 active:bg-accent-800 disabled:bg-accent-600/60 dark:bg-accent-500 dark:hover:bg-accent-400 dark:text-ink-950",
+  primary: "bg-accent-600 text-white hover:bg-accent-700 active:bg-accent-800 disabled:bg-accent-600/60 dark:bg-accent-500 dark:hover:bg-accent-400 shadow-sm shadow-accent-600/25",
   secondary: "border border-line bg-surface text-text hover:bg-sunken active:bg-sunken",
   ghost: "text-muted hover:bg-sunken hover:text-text",
   quiet: "text-accent-700 hover:bg-accent-50 dark:text-accent-300 dark:hover:bg-accent-900/40",
   danger: "bg-rose-600 text-white hover:bg-rose-700 disabled:bg-rose-400",
+  // Sobre fondos de color (tarjeta principal del inicio)
+  inverse: "bg-white text-accent-700 shadow-sm hover:bg-accent-50 active:bg-accent-100",
 };
 // En pantallas táctiles los botones son algo más altos (objetivo ≥ 40 px) y el texto largo pasa a otra línea en vez de salirse
 const sizes = { sm: "min-h-9 px-3 py-1 text-[13px] sm:min-h-8", md: "min-h-10 px-3.5 py-1.5 text-sm sm:min-h-9", lg: "min-h-12 px-5 py-2 text-[15px] sm:min-h-11" };
 const base =
-  "inline-flex max-w-full select-none items-center justify-center gap-2 rounded-lg text-center font-medium leading-tight transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex max-w-full select-none items-center justify-center gap-2 rounded-xl text-center font-medium leading-tight transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
 export function Button({
   variant = "primary",
@@ -62,7 +64,7 @@ export function IconButton({ label, active, className, children, ...props }: But
 }
 
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={clsx("rounded-xl border border-line bg-surface p-4 sm:p-5", className)}>{children}</div>;
+  return <div className={clsx("rounded-2xl border border-line bg-surface p-4 shadow-card sm:p-6", className)}>{children}</div>;
 }
 
 export function PageHeader({ title, subtitle, actions, back }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; back?: { href: string; label: string } }) {
@@ -102,13 +104,18 @@ const tones = {
 export type Tone = keyof typeof tones;
 
 export function Badge({ tone = "neutral", children, className }: { tone?: Tone; children: ReactNode; className?: string }) {
-  return <span className={clsx("inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-xs font-medium", tones[tone], className)}>{children}</span>;
+  return <span className={clsx("inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium", tones[tone], className)}>{children}</span>;
 }
 
 export function Alert({ tone = "info", title, children }: { tone?: Exclude<Tone, "neutral" | "accent">; title?: string; children: ReactNode }) {
-  const bar = { info: "border-sky-400", success: "border-emerald-500", warning: "border-amber-400", danger: "border-rose-500" }[tone];
+  const bar = {
+    info: "border-sky-200 bg-sky-50/70 dark:border-sky-900/60 dark:bg-sky-950/30",
+    success: "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/60 dark:bg-emerald-950/30",
+    warning: "border-amber-200 bg-amber-50/70 dark:border-amber-900/60 dark:bg-amber-950/30",
+    danger: "border-rose-200 bg-rose-50/70 dark:border-rose-900/60 dark:bg-rose-950/30",
+  }[tone];
   return (
-    <div role={tone === "danger" ? "alert" : "status"} className={clsx("rounded-lg border border-line border-l-[3px] bg-surface px-4 py-3 text-sm text-text", bar)}>
+    <div role={tone === "danger" ? "alert" : "status"} className={clsx("rounded-xl border px-4 py-3 text-sm text-text", bar)}>
       {title && <p className="mb-0.5 font-semibold">{title}</p>}
       <div className="leading-relaxed text-text/85">{children}</div>
     </div>
@@ -125,7 +132,7 @@ export function Spinner({ className }: { className?: string }) {
 }
 
 export function Progress({ value, className, tone = "accent", label }: { value: number; className?: string; tone?: "accent" | "success" | "warning"; label?: string }) {
-  const color = { accent: "bg-accent-500", success: "bg-emerald-500", warning: "bg-amber-500" }[tone];
+  const color = { accent: "bg-gradient-to-r from-accent-400 to-accent-600", success: "bg-emerald-500", warning: "bg-amber-500" }[tone];
   const v = Math.max(0, Math.min(100, value));
   return (
     <div className={clsx("h-1.5 w-full overflow-hidden rounded-full bg-sunken", className)} role="progressbar" aria-valuenow={Math.round(v)} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
@@ -136,8 +143,8 @@ export function Progress({ value, className, tone = "accent", label }: { value: 
 
 export function EmptyState({ title, children, action, icon }: { title: string; children?: ReactNode; action?: ReactNode; icon?: ReactNode }) {
   return (
-    <div className="rounded-xl border border-dashed border-line px-6 py-12 text-center">
-      {icon && <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-sunken text-muted">{icon}</div>}
+    <div className="rounded-2xl border border-dashed border-line bg-surface/50 px-6 py-10 text-center">
+      {icon && <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-100 text-accent-700 dark:bg-accent-900/50 dark:text-accent-200">{icon}</div>}
       <p className="font-medium text-text">{title}</p>
       {children && <div className="mx-auto mt-1 max-w-md text-sm text-muted">{children}</div>}
       {action && <div className="mt-5">{action}</div>}
@@ -147,7 +154,7 @@ export function EmptyState({ title, children, action, icon }: { title: string; c
 
 export function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: ReactNode }) {
   return (
-    <div className="rounded-lg border border-line bg-surface px-4 py-3">
+    <div className="rounded-2xl border border-line bg-surface px-4 py-3.5 shadow-card">
       <p className="text-xs font-medium text-muted">{label}</p>
       <p className="mt-0.5 font-serif text-2xl font-semibold tabular-nums text-text">{value}</p>
       {hint && <p className="mt-0.5 text-xs text-muted">{hint}</p>}

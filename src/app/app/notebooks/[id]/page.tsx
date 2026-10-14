@@ -33,7 +33,7 @@ export default async function NotebookPage({ params }: { params: Promise<{ id: s
         <NotebookActions notebook={{ id: notebook.id, title: notebook.title, color: notebook.color, subject: notebook.subject }} />
       </div>
       <div className="grid gap-10 lg:grid-cols-[18rem_1fr]">
-        <aside className="hidden rounded-xl border border-line bg-surface py-3 lg:block">
+        <aside className="hidden rounded-2xl border border-line bg-surface shadow-card py-3 lg:block">
           <NotebookTree notebook={{ id: notebook.id, title: notebook.title, color: notebook.color }} sections={tree} />
         </aside>
         <div className="space-y-10">
@@ -67,7 +67,7 @@ export default async function NotebookPage({ params }: { params: Promise<{ id: s
               )}
             </section>
           ))}
-          <div className="rounded-xl border border-line bg-surface py-3 lg:hidden">
+          <div className="rounded-2xl border border-line bg-surface shadow-card py-3 lg:hidden">
             <p className="px-4 pb-1 text-xs font-medium uppercase tracking-wider text-muted">Organizar secciones y páginas</p>
             <NotebookTree notebook={{ id: notebook.id, title: notebook.title, color: notebook.color }} sections={tree} />
           </div>

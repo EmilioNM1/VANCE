@@ -66,7 +66,7 @@ export default async function ConceptsPage({ params }: { params: Promise<{ id: s
                     const m = mById.get(c.id);
                     const st = MASTERY_LABEL[m?.state ?? "NEW"]!;
                     return (
-                      <Link key={c.id} href={`/app/concepts/${c.id}`} className="rounded-xl border border-line bg-surface p-4 transition hover:border-accent-300">
+                      <Link key={c.id} href={`/app/concepts/${c.id}`} className="rounded-2xl border border-line bg-surface shadow-card p-4 transition hover:border-accent-300">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-medium">{c.name}</p>
                           {c.importance >= 3 && <Badge tone="accent">central</Badge>}

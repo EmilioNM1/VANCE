@@ -35,7 +35,7 @@ export default async function ConceptPage({ params }: { params: Promise<{ id: st
       <Alert tone="info">Consejo: intenta explicar este concepto de memoria antes de leer el resumen. Leer no es lo mismo que recordar.</Alert>
       <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_340px]">
         <div className="space-y-4">
-          <details className="rounded-xl border border-line bg-surface p-5">
+          <details className="rounded-2xl border border-line bg-surface shadow-card p-5">
             <summary className="cursor-pointer font-semibold">Ver resumen y estructura</summary>
             <p className="mt-3 text-sm leading-relaxed">{c.summary}</p>
             {c.details.steps && (

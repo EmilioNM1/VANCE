@@ -29,7 +29,7 @@ export default async function NotebooksPage() {
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {notebooks.map((n) => (
             <li key={n.id}>
-              <Link href={`/app/notebooks/${n.id}`} className="group flex h-full gap-4 rounded-xl border border-line bg-surface p-4 transition-colors hover:border-accent-300">
+              <Link href={`/app/notebooks/${n.id}`} className="group flex h-full gap-4 rounded-2xl border border-line bg-surface shadow-card p-4 transition-colors hover:border-accent-300">
                 <span className={`w-1.5 shrink-0 rounded-full ${NOTEBOOK_DOT[n.color] ?? NOTEBOOK_DOT.teal}`} aria-hidden />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-serif text-lg font-semibold group-hover:text-accent-700">{n.title}</span>

@@ -7,6 +7,7 @@ import { BookOpen, Brain, ChartNoAxesColumn, House, LogOut, NotebookPen, Plus, S
 import { clsx, Spinner } from "./ui";
 import { Logo } from "./logo";
 import { ThemeToggle } from "./theme-toggle";
+import { Menu } from "./ui-overlays";
 import { api } from "@/lib/api";
 import { NOTEBOOK_DOT } from "@/lib/labels";
 
@@ -18,6 +19,12 @@ const NAV = [
   { href: "/app/stats", label: "Progreso", icon: ChartNoAxesColumn },
 ];
 
+const MOBILE_NAV = [
+  { href: "/app", label: "Inicio", icon: House },
+  { href: "/app/notebooks", label: "Cuadernos", icon: NotebookPen },
+  { href: "/app/reviews", label: "Repasos", icon: Brain },
+  { href: "/app/library", label: "Libros", icon: BookOpen },
+];
 
 export function useQuickPage() {
   const router = useRouter();
@@ -54,6 +61,18 @@ export function AppShell({ userName, notebooks, due, children }: { userName: str
     router.refresh();
   };
 
+  const MobileItem = ({ href, label, icon: Icon }: (typeof MOBILE_NAV)[number]) => (
+    <Link href={href} aria-current={active(href) ? "page" : undefined} className={clsx("relative flex flex-col items-center gap-1 pb-2 pt-2 text-[11px] font-medium", active(href) ? "text-accent-700 dark:text-accent-300" : "text-muted")}>
+      <span className={clsx("flex h-8 w-14 items-center justify-center rounded-full transition-colors", active(href) && "bg-accent-100 dark:bg-accent-900/60")}>
+        <Icon className="h-[22px] w-[22px]" strokeWidth={active(href) ? 2.1 : 1.8} />
+      </span>
+      {label}
+      {href === "/app/reviews" && due > 0 && (
+        <span className="absolute right-[18%] top-1 min-w-[18px] rounded-full bg-coral-500 px-1 text-center text-[10px] font-semibold leading-[18px] text-white">{due > 99 ? "99+" : due}</span>
+      )}
+    </Link>
+  );
+
   const Item = ({ href, label, icon: Icon, rail }: (typeof NAV)[number] & { rail?: boolean }) => (
     <Link
       href={href}
@@ -62,13 +81,13 @@ export function AppShell({ userName, notebooks, due, children }: { userName: str
       className={clsx(
         "group relative flex items-center gap-3 rounded-lg text-[14px] font-medium transition-colors",
         rail ? "h-10 w-10 justify-center" : "px-2.5 py-1.5",
-        active(href) ? "bg-surface text-text shadow-card ring-1 ring-line" : "text-muted hover:bg-surface/70 hover:text-text",
+        active(href) ? "bg-accent-100/80 text-accent-800 dark:bg-accent-900/50 dark:text-accent-100" : "text-muted hover:bg-surface hover:text-text",
       )}
     >
-      <Icon className={clsx("h-[18px] w-[18px] shrink-0", active(href) && "text-accent-600 dark:text-accent-400")} strokeWidth={1.8} />
+      <Icon className={clsx("h-[18px] w-[18px] shrink-0", active(href) && "text-accent-600 dark:text-accent-300")} strokeWidth={1.8} />
       {!rail && <span className="flex-1">{label}</span>}
       {href === "/app/reviews" && due > 0 && (
-        <span className={clsx("rounded-full bg-accent-600 px-1.5 text-[11px] font-semibold tabular-nums text-white dark:bg-accent-500 dark:text-ink-950", rail && "absolute -right-1 -top-1")}>{due > 99 ? "99+" : due}</span>
+        <span className={clsx("rounded-full bg-coral-500 px-1.5 text-[11px] font-semibold tabular-nums text-white", rail && "absolute -right-1 -top-1")}>{due > 99 ? "99+" : due}</span>
       )}
     </Link>
   );
@@ -83,8 +102,8 @@ export function AppShell({ userName, notebooks, due, children }: { userName: str
           </Link>
           <ThemeToggle compact />
         </div>
-        <button onClick={create} disabled={busy} className="mb-4 flex items-center gap-2 rounded-lg border border-line bg-surface px-2.5 py-2 text-sm font-medium text-text hover:border-accent-300">
-          {busy ? <Spinner className="h-4 w-4" /> : <Plus className="h-4 w-4 text-accent-600" />} Nueva página
+        <button onClick={create} disabled={busy} className="mb-5 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-accent-500 to-accent-700 px-3 py-2.5 text-sm font-semibold text-white shadow-glow transition hover:brightness-110">
+          {busy ? <Spinner className="h-4 w-4" /> : <Plus className="h-4 w-4" />} Nueva página
         </button>
         <nav className="flex flex-col gap-0.5" aria-label="Principal">
           {NAV.map((n) => (
@@ -118,7 +137,7 @@ export function AppShell({ userName, notebooks, due, children }: { userName: str
         <Link href="/app" className="mb-3" aria-label="Inicio">
           <Logo mark />
         </Link>
-        <button onClick={create} disabled={busy} className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg border border-line bg-surface text-accent-600 hover:border-accent-300" aria-label="Nueva página" title="Nueva página">
+        <button onClick={create} disabled={busy} className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-accent-500 to-accent-700 text-white shadow-glow hover:brightness-110" aria-label="Nueva página" title="Nueva página">
           {busy ? <Spinner className="h-4 w-4" /> : <Plus className="h-[18px] w-[18px]" />}
         </button>
         <nav className="flex flex-col gap-1" aria-label="Principal">
@@ -134,34 +153,50 @@ export function AppShell({ userName, notebooks, due, children }: { userName: str
         </div>
       </aside>
 
-      {/* Móvil: barra inferior (oculta mientras se escribe o se estudia) */}
+      {/* Móvil: barra inferior al alcance del pulgar, con la acción principal (escribir) en el centro.
+          Se oculta mientras se escribe o se estudia. */}
       {!focus && (
         <nav
-          className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg md:hidden"
           aria-label="Principal móvil"
         >
-          {[NAV[0]!, NAV[1]!, NAV[2]!, NAV[3]!, { href: "/app/settings", label: "Más", icon: Settings }].map(({ href, label, icon: Icon }) => (
-            <Link key={href} href={href} aria-current={active(href) ? "page" : undefined} className={clsx("relative flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium", active(href) ? "text-accent-700 dark:text-accent-300" : "text-muted")}>
-              <Icon className="h-5 w-5" strokeWidth={1.8} />
-              {label}
-              {href === "/app/reviews" && due > 0 && <span className="absolute right-[22%] top-1 h-2 w-2 rounded-full bg-accent-500" />}
-            </Link>
-          ))}
+          <div className="mx-auto grid max-w-md grid-cols-5 items-end px-1">
+            {MOBILE_NAV.slice(0, 2).map((n) => <MobileItem key={n.href} {...n} />)}
+            <div className="flex justify-center">
+              <button
+                onClick={create}
+                disabled={busy}
+                aria-label="Nueva página"
+                className="-mt-5 mb-1.5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-accent-400 to-accent-700 text-white shadow-glow ring-4 ring-paper transition active:scale-95"
+              >
+                {busy ? <Spinner className="h-5 w-5" /> : <Plus className="h-6 w-6" strokeWidth={2.2} />}
+              </button>
+            </div>
+            {MOBILE_NAV.slice(2).map((n) => <MobileItem key={n.href} {...n} />)}
+          </div>
         </nav>
       )}
 
       <div className={clsx(focus ? "md:pl-16" : "md:pl-16 lg:pl-60")}>
         {!focus && (
-          <header className="sticky top-0 z-20 flex items-center justify-between border-b border-line bg-paper/90 px-4 py-2.5 backdrop-blur md:hidden">
-            <Link href="/app" className="text-text">
+          <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-line/70 bg-paper/85 px-4 backdrop-blur-lg md:hidden">
+            <Link href="/app" className="text-text" aria-label="Inicio">
               <Logo />
             </Link>
-            <div className="flex items-center gap-1">
-              <ThemeToggle compact />
-              <button onClick={create} disabled={busy} className="flex h-9 w-9 items-center justify-center rounded-lg text-accent-600" aria-label="Nueva página">
-                {busy ? <Spinner className="h-4 w-4" /> : <Plus className="h-5 w-5" />}
-              </button>
-            </div>
+            <Menu
+              label="Mi cuenta"
+              trigger={
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-100 text-[15px] font-semibold text-accent-800 dark:bg-accent-900/60 dark:text-accent-200">
+                  {userName.trim().charAt(0).toUpperCase() || "V"}
+                </span>
+              }
+              items={[
+                { label: "Mi progreso", icon: <ChartNoAxesColumn className="h-4 w-4" />, onSelect: () => router.push("/app/stats") },
+                { label: "Ajustes y tema", icon: <Settings className="h-4 w-4" />, onSelect: () => router.push("/app/settings") },
+                "separator",
+                { label: "Cerrar sesión", icon: <LogOut className="h-4 w-4" />, onSelect: logout },
+              ]}
+            />
           </header>
         )}
         {children}

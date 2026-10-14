@@ -31,7 +31,7 @@ export default async function LibraryDetail({ params }: { params: Promise<{ id: 
             <ul className="space-y-2">
               {documents.map((d) => (
                 <li key={d.id}>
-                  <Link href={`/app/documents/${d.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-3 transition hover:border-accent-300">
+                  <Link href={`/app/documents/${d.id}`} className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface shadow-card px-4 py-3 transition hover:border-accent-300">
                     <div className="min-w-0">
                       <p className="truncate font-medium">{d.title}</p>
                       <p className="text-xs text-muted">

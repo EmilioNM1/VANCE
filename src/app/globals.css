@@ -4,21 +4,21 @@
 
 @layer base {
   :root {
-    --paper: 250 248 244;
+    --paper: 246 247 251;
     --surface: 255 255 255;
-    --sunken: 244 241 235;
-    --line: 231 226 217;
-    --text: 28 27 25;
-    --muted: 107 103 95;
+    --sunken: 238 241 247;
+    --line: 227 231 239;
+    --text: 20 26 46;
+    --muted: 92 101 124;
     color-scheme: light;
   }
   .dark {
-    --paper: 22 21 19;
-    --surface: 29 28 26;
-    --sunken: 35 34 31;
-    --line: 50 48 44;
-    --text: 236 233 227;
-    --muted: 158 152 142;
+    --paper: 14 18 32;
+    --surface: 22 27 46;
+    --sunken: 29 35 56;
+    --line: 42 49 73;
+    --text: 233 236 245;
+    --muted: 154 163 186;
     color-scheme: dark;
   }
   html {
@@ -55,11 +55,12 @@
 
 @layer components {
   .input {
-    @apply w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-text placeholder:text-muted/70
-      transition-colors focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20 disabled:opacity-60;
+    /* 16 px en el teléfono: evita que iOS haga zoom al tocar el campo; 44 px de alto para el dedo */
+    @apply min-h-11 w-full rounded-2xl border border-line bg-surface shadow-card px-3.5 py-2 text-[16px] text-text shadow-sm shadow-ink-900/[0.02] placeholder:text-muted/70
+      transition-colors focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/15 disabled:opacity-60 sm:min-h-10 sm:text-sm;
   }
   .label {
-    @apply mb-1 block text-sm font-medium text-text/90;
+    @apply mb-1.5 block text-sm font-medium text-text/90;
   }
   .title-serif {
     @apply font-serif font-semibold tracking-tight;
@@ -73,7 +74,7 @@
 .note-editor .ProseMirror {
   @apply font-serif text-[1.075rem] leading-[1.75] text-text outline-none;
   min-height: 60vh;
-  caret-color: rgb(31 110 104);
+  caret-color: rgb(53 73 239);
   -webkit-user-select: text;
   user-select: text;
 }

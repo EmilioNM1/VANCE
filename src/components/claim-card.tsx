@@ -66,7 +66,7 @@ export function ClaimCard({ claim, readOnly }: { claim: ClaimDTO; readOnly?: boo
   };
 
   return (
-    <article className="rounded-xl border border-line bg-surface p-4">
+    <article className="rounded-2xl border border-line bg-surface shadow-card p-4">
       <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
         <Badge tone={v.tone}>{v.label}</Badge>
         <Badge>{claim.kind.replace("_", " ").toLowerCase()}</Badge>

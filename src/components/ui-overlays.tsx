@@ -60,7 +60,7 @@ export function Menu({ trigger, items, align = "right", label }: { trigger: Reac
             if (e.key === "ArrowUp") (els[(i - 1 + els.length) % els.length] ?? els[0])?.focus();
             if (e.key.startsWith("Arrow")) e.preventDefault();
           }}
-          className={clsx("absolute top-full z-50 mt-1 min-w-[13rem] animate-fade-in rounded-lg border border-line bg-surface p-1 shadow-float", align === "right" ? "right-0" : "left-0")}
+          className={clsx("absolute top-full z-50 mt-1 min-w-[13rem] animate-fade-in rounded-2xl border border-line bg-surface shadow-card p-1.5 shadow-float", align === "right" ? "right-0" : "left-0")}
         >
           {items.map((it, i) =>
             it === "separator" ? (
@@ -77,7 +77,7 @@ export function Menu({ trigger, items, align = "right", label }: { trigger: Reac
                   it.onSelect();
                 }}
                 className={clsx(
-                  "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-sunken focus:bg-sunken focus:outline-none disabled:opacity-40",
+                  "flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-[15px] hover:bg-sunken sm:px-2.5 sm:py-1.5 sm:text-sm focus:bg-sunken focus:outline-none disabled:opacity-40",
                   it.danger ? "text-rose-600 dark:text-rose-400" : "text-text",
                 )}
               >

@@ -1,10 +1,13 @@
 import type { Config } from "tailwindcss";
 
 /**
- * Sistema visual de VANCE: editorial, cálido y sobrio.
- * - Tokens semánticos (paper/surface/sunken/line/text/muted) definidos como variables CSS, con
- *   valores propios en modo claro y oscuro (globals.css).
- * - "ink": neutros cálidos; "accent": verde petróleo profundo (concentración, calma).
+ * Sistema visual de VANCE (regla 60-30-10):
+ * - 60 %: neutros fríos y limpios (paper/surface/sunken/line), definidos como variables CSS con
+ *   valores propios en modo claro y oscuro (globals.css). El modo oscuro evita el negro puro y
+ *   aclara las superficies elevadas.
+ * - 30 %: "ink" (azul pizarra) para texto y estructura.
+ * - 10 %: "accent" (azul real vivo: concentración y confianza) para acciones y estados activos;
+ *   "coral" (cálido) solo para destacar lo pendiente o lo que celebra un logro.
  */
 const v = (name: string) => `rgb(var(--${name}) / <alpha-value>)`;
 
@@ -21,30 +24,43 @@ export default {
         text: v("text"),
         muted: v("muted"),
         ink: {
-          50: "#faf8f4",
-          100: "#f3f0ea",
-          200: "#e7e2d9",
-          300: "#d3ccc0",
-          400: "#a8a196",
-          500: "#7d776d",
-          600: "#5e5950",
-          700: "#45413a",
-          800: "#2c2a26",
-          900: "#1c1b19",
-          950: "#121110",
+          50: "#f7f8fb",
+          100: "#eef1f6",
+          200: "#e1e5ee",
+          300: "#c8cfdc",
+          400: "#9aa3b8",
+          500: "#737d95",
+          600: "#566077",
+          700: "#414a5f",
+          800: "#2a3144",
+          900: "#181e30",
+          950: "#0e1220",
         },
         accent: {
-          50: "#eef7f6",
-          100: "#d5edea",
-          200: "#acdad4",
-          300: "#7dc1b9",
-          400: "#4fa59c",
-          500: "#2e8981",
-          600: "#1f6e68",
-          700: "#1b5a55",
-          800: "#194946",
-          900: "#163c3a",
-          950: "#0b2422",
+          50: "#eef3ff",
+          100: "#dfe8ff",
+          200: "#c5d4ff",
+          300: "#9db6ff",
+          400: "#6f8dff",
+          500: "#4a67fb",
+          600: "#3549ef",
+          700: "#2b39d4",
+          800: "#2832ab",
+          900: "#263186",
+          950: "#1a1e4f",
+        },
+        coral: {
+          50: "#fff4f1",
+          100: "#ffe6df",
+          200: "#ffcbbd",
+          300: "#ffa68f",
+          400: "#ff7d5e",
+          500: "#f8603d",
+          600: "#e44624",
+          700: "#bf361a",
+          800: "#9d2f1a",
+          900: "#822c1b",
+          950: "#461209",
         },
       },
       fontFamily: {
@@ -53,9 +69,10 @@ export default {
         mono: ["ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
       },
       boxShadow: {
-        card: "0 1px 2px rgb(28 27 25 / .04)",
-        float: "0 8px 30px rgb(28 27 25 / .10), 0 1px 3px rgb(28 27 25 / .06)",
-        paper: "0 1px 3px rgb(28 27 25 / .06), 0 12px 40px rgb(28 27 25 / .05)",
+        card: "0 1px 2px rgb(20 26 46 / .04), 0 2px 8px rgb(20 26 46 / .03)",
+        float: "0 12px 32px rgb(20 26 46 / .12), 0 2px 6px rgb(20 26 46 / .06)",
+        paper: "0 1px 3px rgb(20 26 46 / .06), 0 12px 40px rgb(20 26 46 / .06)",
+        glow: "0 8px 24px -6px rgb(53 73 239 / .40)",
       },
       keyframes: {
         "fade-in": { from: { opacity: "0", transform: "translateY(3px)" }, to: { opacity: "1", transform: "none" } },
