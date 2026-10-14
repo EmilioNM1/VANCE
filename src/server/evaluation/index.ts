@@ -3,7 +3,7 @@ import type { activities } from "@/db/schema";
 import type { EvaluationResult } from "@/lib/types";
 import { aiConfigured } from "../ai";
 import { AiNotConfiguredError, AiUnavailableError, AiBudgetExceededError, AiOutputError } from "../ai/errors";
-import { evaluateCloze, evaluateOrder, evaluateRecognition } from "./rules";
+import { evaluateCloze, evaluateDiagram, evaluateOrder, evaluateRecognition } from "./rules";
 import { evaluateSemantic, heuristicEvaluate } from "./semantic";
 
 type Activity = typeof activities.$inferSelect;
@@ -13,6 +13,7 @@ export const responseSchemas = {
   order: z.object({ order: z.array(z.string().max(20)).max(40), justification: z.string().max(4000).optional() }),
   cloze: z.object({ blanks: z.record(z.string(), z.string().max(200)) }),
   recognition: z.object({ optionId: z.string().max(20) }),
+  diagram: z.object({ slots: z.record(z.string().max(20), z.string().max(20)) }),
 };
 
 export function parseResponse(type: Activity["type"], raw: unknown) {
@@ -23,6 +24,8 @@ export function parseResponse(type: Activity["type"], raw: unknown) {
       return responseSchemas.cloze.parse(raw);
     case "RECOGNITION":
       return responseSchemas.recognition.parse(raw);
+    case "DIAGRAM":
+      return responseSchemas.diagram.parse(raw);
     default:
       return responseSchemas.open.parse(raw);
   }
@@ -30,7 +33,7 @@ export function parseResponse(type: Activity["type"], raw: unknown) {
 
 export interface EvalContext {
   userId: string;
-  referenceClaims: { id: string; text: string; chunkId: string; page: number | null }[];
+  referenceClaims: { id: string; text: string; chunkId: string | null; page: number | null; source?: EvaluationResult["references"][number]["source"] }[];
   topicConcepts: { id: string; name: string }[];
   nextHintLevel: number;
   knownMisconceptions: string[];
@@ -49,7 +52,7 @@ export interface EvalOutcome {
  *   provisional por términos clave, marcada como tal y reevaluada después.
  */
 export async function evaluateAttempt(activity: Activity, response: unknown, ctx: EvalContext): Promise<EvalOutcome> {
-  const refs = ctx.referenceClaims.map((c) => ({ claimId: c.id, chunkId: c.chunkId, page: c.page, text: c.text }));
+  const refs = ctx.referenceClaims.map((c) => ({ claimId: c.id, chunkId: c.chunkId, page: c.page, text: c.text, source: c.source }));
   const withRefs = (r: EvaluationResult): EvaluationResult => ({ ...r, references: refs });
 
   if (activity.type === "PROCESS_ORDER") {
@@ -82,6 +85,11 @@ export async function evaluateAttempt(activity: Activity, response: unknown, ctx
   if (activity.type === "CLOZE") {
     const r = response as z.infer<typeof responseSchemas.cloze>;
     return { method: "RULES", provisional: false, result: withRefs(evaluateCloze(r.blanks, activity.answerKey, activity.rubric)) };
+  }
+  if (activity.type === "DIAGRAM") {
+    const r = response as z.infer<typeof responseSchemas.diagram>;
+    const labels = new Map((activity.payload.diagram?.bank ?? []).map((b) => [b.id, b.text]));
+    return { method: "RULES", provisional: false, result: withRefs(evaluateDiagram(r.slots, activity.answerKey, activity.rubric, labels)) };
   }
   if (activity.type === "RECOGNITION") {
     const r = response as z.infer<typeof responseSchemas.recognition>;

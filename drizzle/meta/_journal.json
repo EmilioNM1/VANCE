@@ -15,6 +15,27 @@
       "when": 1791973261665,
       "tag": "0001_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791976136607,
+      "tag": "0002_notebooks",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791976145488,
+      "tag": "0003_notebooks_rls_search",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791976464122,
+      "tag": "0004_job_result",
+      "breakpoints": true
     }
   ]
 }

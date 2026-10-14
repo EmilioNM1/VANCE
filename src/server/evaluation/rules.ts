@@ -159,3 +159,32 @@ export function evaluateRecognition(optionId: string, key: AnswerKey, rubric: Ru
     explanation: rubric.explanation,
   };
 }
+
+/** Completar un esquema: cada hueco debe recibir su etiqueta correcta (evaluación verificable). */
+export function evaluateDiagram(given: Record<string, string>, key: AnswerKey, rubric: Rubric, labels: Map<string, string>): EvaluationResult {
+  const slots = key.slots ?? {};
+  const nodeIds = Object.keys(slots);
+  const used = Object.values(given);
+  const duplicated = new Set(used.filter((v, i) => used.indexOf(v) !== i));
+  const elements = nodeIds.map((nodeId, i) => {
+    const g = given[nodeId];
+    const ok = !!g && g === slots[nodeId] && !duplicated.has(g);
+    return { id: nodeId, label: `Hueco ${i + 1}`, status: (ok ? "PRESENT" : g ? "INCORRECT" : "ABSENT") as "PRESENT" | "INCORRECT" | "ABSENT" };
+  });
+  const okCount = elements.filter((e) => e.status === "PRESENT").length;
+  const score = nodeIds.length ? Math.round((okCount / nodeIds.length) * 100) / 100 : 0;
+  return {
+    ...baseResult(),
+    score,
+    verdict: verdictFor(score),
+    elements,
+    correct: elements.filter((e) => e.status === "PRESENT").map((e) => e.label),
+    incorrect: elements
+      .filter((e) => e.status === "INCORRECT")
+      .map((e) => ({ description: `${e.label}: «${labels.get(given[e.id]!) ?? "?"}» no va ahí` })),
+    missing: elements.filter((e) => e.status === "ABSENT").map((e) => e.label),
+    feedback: `${okCount} de ${nodeIds.length} huecos del esquema correctos.`,
+    details: { wrongNodes: elements.filter((e) => e.status !== "PRESENT").map((e) => e.id) },
+    explanation: rubric.explanation,
+  };
+}

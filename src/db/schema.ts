@@ -20,7 +20,9 @@ import {
   uniqueIndex,
   primaryKey,
   bigint,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import type {
   ActivityPayload,
   AnswerKey,
@@ -29,6 +31,7 @@ import type {
   MasteryDimensions,
   Rubric,
   UserSettings,
+  NoteDoc,
 } from "@/lib/types";
 
 const id = () => uuid("id").primaryKey().defaultRandom();
@@ -124,6 +127,11 @@ export const documents = pgTable(
     auditCompletedAt: timestamp("audit_completed_at", { withTimezone: true }),
     knowledgeBuiltAt: timestamp("knowledge_built_at", { withTimezone: true }),
     isDemo: boolean("is_demo").notNull().default(false),
+    /** Índice de recuperación semántica externo (Gemini File Search). Null = solo búsqueda local. */
+    indexProvider: text("index_provider").$type<"GEMINI_FILE_SEARCH" | null>(),
+    indexStatus: text("index_status").$type<"PENDING" | "INDEXING" | "INDEXED" | "FAILED" | null>(),
+    indexRef: text("index_ref"),
+    indexError: text("index_error"),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -203,12 +211,12 @@ export const claims = pgTable(
   {
     id: id(),
     userId: userRef(),
-    documentId: uuid("document_id")
-      .notNull()
-      .references(() => documents.id, { onDelete: "cascade" }),
-    chunkId: uuid("chunk_id")
-      .notNull()
-      .references(() => chunks.id, { onDelete: "cascade" }),
+    /** Origen: un fragmento de libro (DOCUMENT) o una página de apuntes (NOTE). */
+    sourceKind: text("source_kind").$type<"DOCUMENT" | "NOTE">().notNull().default("DOCUMENT"),
+    documentId: uuid("document_id").references(() => documents.id, { onDelete: "cascade" }),
+    chunkId: uuid("chunk_id").references(() => chunks.id, { onDelete: "cascade" }),
+    pageId: uuid("page_id").references(() => notebookPages.id, { onDelete: "cascade" }),
+    noteReviewId: uuid("note_review_id").references(() => noteReviews.id, { onDelete: "set null" }),
     ord: integer("ord").notNull(),
     kind: text("kind").$type<ClaimKind>().notNull(),
     /** Afirmación normalizada, tal como dice el documento. */
@@ -226,14 +234,19 @@ export const claims = pgTable(
     finalText: text("final_text"),
     /** true solo si puede usarse como conocimiento validado. */
     validated: boolean("validated").notNull().default(false),
-    validationBasis: text("validation_basis").$type<"EXTERNAL_SOURCE" | "USER_APPROVED" | "USER_EDITED" | null>(),
+    validationBasis: text("validation_basis").$type<"EXTERNAL_SOURCE" | "BOOK_SOURCE" | "USER_APPROVED" | "USER_EDITED" | null>(),
     contradictsClaimIds: jsonb("contradicts_claim_ids").$type<string[]>().notNull().default([]),
     /** Metadatos de auditoría (consulta bibliográfica sugerida, dominio, incidencias de extracción). */
     meta: jsonb("meta").$type<{ searchQuery?: string; biomedical?: boolean; extractionIssue?: string | null }>().notNull().default({}),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("claims_document_idx").on(t.documentId, t.ord), index("claims_user_validated_idx").on(t.userId, t.validated)],
+  (t) => [
+    index("claims_document_idx").on(t.documentId, t.ord),
+    index("claims_page_idx").on(t.pageId),
+    index("claims_user_validated_idx").on(t.userId, t.validated),
+    check("claims_source_check", sql`(${t.sourceKind} = 'DOCUMENT' and ${t.documentId} is not null and ${t.chunkId} is not null) or (${t.sourceKind} = 'NOTE' and ${t.pageId} is not null)`),
+  ],
 );
 
 export const claimSources = pgTable(
@@ -245,7 +258,11 @@ export const claimSources = pgTable(
       .notNull()
       .references(() => claims.id, { onDelete: "cascade" }),
     /** De dónde salió la referencia: solo herramientas reales, nunca texto libre del modelo. */
-    retrievedVia: text("retrieved_via").$type<"PUBMED" | "WEB_SEARCH">().notNull(),
+    retrievedVia: text("retrieved_via").$type<"PUBMED" | "WEB_SEARCH" | "BOOK">().notNull(),
+    /** Para fuentes de tipo BOOK: el documento y el fragmento recuperados. */
+    documentId: uuid("document_id").references(() => documents.id, { onDelete: "cascade" }),
+    chunkId: uuid("chunk_id").references(() => chunks.id, { onDelete: "set null" }),
+    page: integer("page"),
     title: text("title").notNull(),
     url: text("url").notNull(),
     pmid: text("pmid"),
@@ -295,9 +312,9 @@ export const concepts = pgTable(
   {
     id: id(),
     userId: userRef(),
-    documentId: uuid("document_id")
-      .notNull()
-      .references(() => documents.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id").references(() => documents.id, { onDelete: "cascade" }),
+    /** Concepto surgido de una página de apuntes. */
+    pageId: uuid("page_id").references(() => notebookPages.id, { onDelete: "cascade" }),
     sectionId: uuid("section_id").references(() => sections.id, { onDelete: "set null" }),
     name: text("name").notNull(),
     kind: text("kind").$type<ConceptKind>().notNull(),
@@ -306,7 +323,12 @@ export const concepts = pgTable(
     importance: integer("importance").notNull().default(2),
     createdAt: createdAt(),
   },
-  (t) => [index("concepts_document_idx").on(t.documentId), index("concepts_user_idx").on(t.userId)],
+  (t) => [
+    index("concepts_document_idx").on(t.documentId),
+    index("concepts_page_idx").on(t.pageId),
+    index("concepts_user_idx").on(t.userId),
+    check("concepts_source_check", sql`${t.documentId} is not null or ${t.pageId} is not null`),
+  ],
 );
 
 export const conceptClaims = pgTable(
@@ -341,9 +363,8 @@ export const conceptRelations = pgTable(
   {
     id: id(),
     userId: userRef(),
-    documentId: uuid("document_id")
-      .notNull()
-      .references(() => documents.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id").references(() => documents.id, { onDelete: "cascade" }),
+    pageId: uuid("page_id").references(() => notebookPages.id, { onDelete: "cascade" }),
     fromConceptId: uuid("from_concept_id")
       .notNull()
       .references(() => concepts.id, { onDelete: "cascade" }),
@@ -367,16 +388,19 @@ export type ActivityType =
   | "RELATION"
   | "PREDICTION"
   | "CASE"
-  | "RECOGNITION";
+  | "RECOGNITION"
+  | "DIAGRAM";
 
 export const activities = pgTable(
   "activities",
   {
     id: id(),
     userId: userRef(),
-    documentId: uuid("document_id")
-      .notNull()
-      .references(() => documents.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id").references(() => documents.id, { onDelete: "cascade" }),
+    /** Página de apuntes de la que procede (si aplica). */
+    pageId: uuid("page_id").references(() => notebookPages.id, { onDelete: "cascade" }),
+    /** Origen pedagógico: libro, apuntes o combinación de ambos. */
+    origin: text("origin").$type<"BOOK" | "NOTES" | "COMBINED">().notNull().default("BOOK"),
     /** Concepto principal entrenado. */
     conceptId: uuid("concept_id")
       .notNull()
@@ -398,7 +422,12 @@ export const activities = pgTable(
     retired: boolean("retired").notNull().default(false),
     createdAt: createdAt(),
   },
-  (t) => [index("activities_concept_idx").on(t.conceptId, t.type), index("activities_user_idx").on(t.userId)],
+  (t) => [
+    index("activities_concept_idx").on(t.conceptId, t.type),
+    index("activities_user_idx").on(t.userId),
+    index("activities_page_idx").on(t.pageId),
+    check("activities_source_check", sql`${t.documentId} is not null or ${t.pageId} is not null`),
+  ],
 );
 
 // ───────────────────────────── Sesiones de aprendizaje ─────────────────────────────
@@ -408,8 +437,11 @@ export const studySessions = pgTable(
   {
     id: id(),
     userId: userRef(),
-    mode: text("mode").$type<"DAILY" | "DOCUMENT" | "CONCEPT" | "CUMULATIVE">().notNull(),
+    mode: text("mode").$type<"DAILY" | "DOCUMENT" | "CONCEPT" | "CUMULATIVE" | "PAGE" | "SECTION">().notNull(),
     documentId: uuid("document_id").references(() => documents.id, { onDelete: "set null" }),
+    pageId: uuid("page_id").references(() => notebookPages.id, { onDelete: "set null" }),
+    notebookSectionId: uuid("notebook_section_id").references(() => notebookSections.id, { onDelete: "set null" }),
+    focus: text("focus").$type<"ALL" | "ERRORS" | "NOTES" | "BOOK" | "COMBINED">().notNull().default("ALL"),
     status: text("status").$type<"ACTIVE" | "COMPLETED" | "ABANDONED">().notNull().default("ACTIVE"),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
     lastActiveAt: timestamp("last_active_at", { withTimezone: true }).notNull().defaultNow(),
@@ -607,7 +639,11 @@ export type JobType =
   | "document.extract"
   | "document.audit"
   | "document.build_knowledge"
-  | "evaluation.reevaluate";
+  | "evaluation.reevaluate"
+  | "document.index"
+  | "document.unindex"
+  | "notes.analyze"
+  | "notes.build_activities";
 
 export const jobs = pgTable(
   "jobs",
@@ -622,6 +658,8 @@ export const jobs = pgTable(
     runAt: timestamp("run_at", { withTimezone: true }).notNull().defaultNow(),
     lockedAt: timestamp("locked_at", { withTimezone: true }),
     lastError: text("last_error"),
+    /** Resultado visible para el usuario (p. ej. cuántas actividades se crearon). */
+    result: jsonb("result").$type<Record<string, unknown>>(),
     createdAt: createdAt(),
     finishedAt: timestamp("finished_at", { withTimezone: true }),
   },
@@ -641,3 +679,176 @@ export const aiUsage = pgTable(
   },
   (t) => [index("ai_usage_user_idx").on(t.userId, t.createdAt)],
 );
+
+// ───────────────────────────── Cuadernos y apuntes ─────────────────────────────
+
+export const notebooks = pgTable(
+  "notebooks",
+  {
+    id: id(),
+    userId: userRef(),
+    title: text("title").notNull(),
+    subject: text("subject"),
+    /** Color de acento del cuaderno (token, no valor libre). */
+    color: text("color").notNull().default("teal"),
+    ord: integer("ord").notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("notebooks_user_idx").on(t.userId, t.ord)],
+);
+
+export const notebookSections = pgTable(
+  "notebook_sections",
+  {
+    id: id(),
+    userId: userRef(),
+    notebookId: uuid("notebook_id")
+      .notNull()
+      .references(() => notebooks.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    ord: integer("ord").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [index("notebook_sections_nb_idx").on(t.notebookId, t.ord)],
+);
+
+export const notebookPages = pgTable(
+  "notebook_pages",
+  {
+    id: id(),
+    userId: userRef(),
+    notebookId: uuid("notebook_id")
+      .notNull()
+      .references(() => notebooks.id, { onDelete: "cascade" }),
+    sectionId: uuid("section_id")
+      .notNull()
+      .references(() => notebookSections.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    ord: integer("ord").notNull().default(0),
+    /** Documento ProseMirror/Tiptap validado en servidor. */
+    content: jsonb("content").$type<NoteDoc>().notNull(),
+    /** Texto plano derivado (búsqueda, análisis, exportación TXT). */
+    contentText: text("content_text").notNull().default(""),
+    contentHash: text("content_hash").notNull().default(""),
+    wordCount: integer("word_count").notNull().default(0),
+    /** Control de concurrencia optimista entre dispositivos. */
+    version: integer("version").notNull().default(1),
+    lastAnalyzedHash: text("last_analyzed_hash"),
+    lastAnalyzedAt: timestamp("last_analyzed_at", { withTimezone: true }),
+    lastOpenedAt: timestamp("last_opened_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("notebook_pages_section_idx").on(t.sectionId, t.ord), index("notebook_pages_user_updated_idx").on(t.userId, t.updatedAt)],
+);
+
+/** Instantáneas para recuperar versiones anteriores (incl. antes de aceptar correcciones). */
+export const pageVersions = pgTable(
+  "page_versions",
+  {
+    id: id(),
+    userId: userRef(),
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => notebookPages.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+    title: text("title").notNull(),
+    content: jsonb("content").$type<NoteDoc>().notNull(),
+    reason: text("reason").$type<"AUTO" | "BEFORE_CORRECTION" | "BEFORE_RESTORE" | "MANUAL">().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("page_versions_page_idx").on(t.pageId, t.createdAt)],
+);
+
+/** Libros de referencia vinculados a una página. */
+export const pageDocumentLinks = pgTable(
+  "page_document_links",
+  {
+    userId: userRef(),
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => notebookPages.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.pageId, t.documentId] })],
+);
+
+/** Conceptos asociados a una página: propios (NOTE) o del libro vinculado (BOOK). */
+export const pageConceptLinks = pgTable(
+  "page_concept_links",
+  {
+    userId: userRef(),
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => notebookPages.id, { onDelete: "cascade" }),
+    conceptId: uuid("concept_id")
+      .notNull()
+      .references(() => concepts.id, { onDelete: "cascade" }),
+    origin: text("origin").$type<"NOTE" | "BOOK">().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.pageId, t.conceptId] }), index("page_concept_links_concept_idx").on(t.conceptId)],
+);
+
+/** Imágenes insertadas en los apuntes (almacenamiento privado existente). */
+export const noteAssets = pgTable("note_assets", {
+  id: id(),
+  userId: userRef(),
+  pageId: uuid("page_id").references(() => notebookPages.id, { onDelete: "set null" }),
+  storageKey: text("storage_key").notNull(),
+  mimeType: text("mime_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  createdAt: createdAt(),
+});
+
+/** Ejecución de un análisis de apuntes (página o selección) contra los libros. */
+export const noteReviews = pgTable(
+  "note_reviews",
+  {
+    id: id(),
+    userId: userRef(),
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => notebookPages.id, { onDelete: "cascade" }),
+    scope: text("scope").$type<"PAGE" | "SELECTION">().notNull(),
+    selectionText: text("selection_text"),
+    status: text("status").$type<"QUEUED" | "RUNNING" | "DONE" | "FAILED">().notNull().default("QUEUED"),
+    statusDetail: text("status_detail"),
+    contentHash: text("content_hash").notNull(),
+    retrievalProvider: text("retrieval_provider"),
+    omissions: jsonb("omissions").$type<{ description: string; documentId: string; documentTitle: string; page: number | null; chunkId: string | null; excerpt: string }[]>().notNull().default([]),
+    externalVerification: boolean("external_verification").notNull().default(false),
+    error: text("error"),
+    createdAt: createdAt(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (t) => [index("note_reviews_page_idx").on(t.pageId, t.createdAt)],
+);
+
+/** Caché de resultados de IA deterministas (misma entrada → misma salida). */
+export const aiCache = pgTable(
+  "ai_cache",
+  {
+    userId: userRef(),
+    key: text("key").notNull(),
+    operation: text("operation").notNull(),
+    output: jsonb("output").notNull(),
+    hits: integer("hits").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.key] })],
+);
+
+/** Almacén de File Search de Gemini de cada usuario (aislamiento por usuario). */
+export const retrievalStores = pgTable("retrieval_stores", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  provider: text("provider").$type<"GEMINI_FILE_SEARCH">().notNull(),
+  storeName: text("store_name").notNull(),
+  createdAt: createdAt(),
+});

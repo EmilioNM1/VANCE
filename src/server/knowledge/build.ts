@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { withUser } from "@/db/client";
-import { chunks, claims, conceptClaims, conceptRelations, concepts, documents, sections, type ConceptKind, type RelationType } from "@/db/schema";
+import { chunks, claims, conceptClaims, conceptRelations, concepts, documents, notebookPages, sections, type ConceptKind, type RelationType } from "@/db/schema";
 import type { ConceptDetails } from "@/lib/types";
 import { aiStructured } from "../ai";
 import { AiUnavailableError } from "../ai/errors";
@@ -44,7 +44,7 @@ export const knowledgeSchema = z.object({
 
 export const globalRelationsSchema = z.object({ relations: z.array(relationSchema) });
 
-const KNOWLEDGE_SYSTEM = `Eres un experto en ciencias cognitivas y diseño instruccional. Transformas afirmaciones VALIDADAS (C1, C2…) de un material de estudio en una estructura de conocimiento.
+export const KNOWLEDGE_SYSTEM = `Eres un experto en ciencias cognitivas y diseño instruccional. Transformas afirmaciones VALIDADAS (C1, C2…) de un material de estudio en una estructura de conocimiento.
 Identifica conceptos, definiciones, procesos secuenciales, mecanismos, estructuras, clasificaciones, fórmulas, comparaciones, causas/consecuencias y prerrequisitos.
 Reglas estrictas:
 - Usa EXCLUSIVAMENTE la información de las afirmaciones proporcionadas. No añadas hechos externos.
@@ -56,7 +56,7 @@ Reglas estrictas:
 - importance: 1 (detalle), 2 (importante), 3 (central).
 - Escribe en el idioma de las afirmaciones.`;
 
-type ClaimLite = { id: string; text: string; sectionId: string | null; chunkId: string };
+type ClaimLite = { id: string; text: string; sectionId: string | null; chunkId: string | null };
 
 export interface CleanConcept {
   key: string;
@@ -126,7 +126,7 @@ export function validateKnowledge(data: z.infer<typeof knowledgeSchema>, refToCl
   return { concepts: out, relations, dropped };
 }
 
-const normName = (s: string) =>
+export const normName = (s: string) =>
   s
     .toLowerCase()
     .normalize("NFD")
@@ -187,6 +187,7 @@ export async function handleBuildKnowledge(job: JobRow) {
       const refMap = new Map(batch.claims.map((c, i) => [`C${i + 1}`, c.id]));
       const res = await aiStructured({
         operation: "knowledge.build",
+        cache: true,
         userId,
         effort: "medium",
         system: KNOWLEDGE_SYSTEM,
@@ -314,14 +315,17 @@ export async function getConceptDetail(userId: string, conceptId: string) {
   return withUser(userId, async (tx) => {
     const [c] = await tx.select().from(concepts).where(and(eq(concepts.id, conceptId), eq(concepts.userId, userId)));
     if (!c) return null;
-    const [doc] = await tx.select({ id: documents.id, title: documents.title }).from(documents).where(eq(documents.id, c.documentId));
+    const [doc] = c.documentId ? await tx.select({ id: documents.id, title: documents.title }).from(documents).where(eq(documents.id, c.documentId)) : [];
+    const [page] = c.pageId
+      ? await tx.select({ id: notebookPages.id, title: notebookPages.title, notebookId: notebookPages.notebookId }).from(notebookPages).where(eq(notebookPages.id, c.pageId))
+      : [];
     const links = await tx.select({ claimId: conceptClaims.claimId }).from(conceptClaims).where(eq(conceptClaims.conceptId, conceptId));
     const ids = links.map((l) => l.claimId);
     const cl = ids.length
       ? await tx
-          .select({ id: claims.id, text: claims.finalText, original: claims.originalText, basis: claims.validationBasis, page: chunks.page, chunkId: chunks.id, quote: claims.quote })
+          .select({ id: claims.id, text: claims.finalText, original: claims.originalText, basis: claims.validationBasis, page: chunks.page, chunkId: chunks.id, quote: claims.quote, sourceKind: claims.sourceKind, pageId: claims.pageId })
           .from(claims)
-          .innerJoin(chunks, eq(chunks.id, claims.chunkId))
+          .leftJoin(chunks, eq(chunks.id, claims.chunkId))
           .where(inArray(claims.id, ids))
       : [];
     const relsOut = await tx
@@ -334,6 +338,6 @@ export async function getConceptDetail(userId: string, conceptId: string) {
       .from(conceptRelations)
       .innerJoin(concepts, eq(concepts.id, conceptRelations.fromConceptId))
       .where(eq(conceptRelations.toConceptId, conceptId));
-    return { concept: c, document: doc!, claims: cl, relationsOut: relsOut, relationsIn: relsIn };
+    return { concept: c, document: doc ?? null, notePage: page ?? null, claims: cl, relationsOut: relsOut, relationsIn: relsIn };
   });
 }

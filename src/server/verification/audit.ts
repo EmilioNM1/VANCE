@@ -129,6 +129,7 @@ export async function handleAudit(job: JobRow) {
       const refs = new Map(batch.map((c, i) => [`F${i + 1}`, c]));
       const res = await aiStructured({
         operation: "audit.extract_claims",
+        cache: true,
         userId,
         effort: "low",
         system: EXTRACT_SYSTEM,

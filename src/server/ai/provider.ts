@@ -21,6 +21,11 @@ export interface StructuredRequest<T> {
   /** Permite a la IA usar la búsqueda web real (herramienta del servidor de Anthropic). */
   webSearch?: { maxUses: number };
   maxTokens?: number;
+  /**
+   * Reutiliza el resultado si la misma entrada ya se procesó (misma operación, instrucciones y
+   * contenido). Solo para operaciones deterministas por su contenido; nunca para búsqueda web.
+   */
+  cache?: boolean;
 }
 
 export interface StructuredResponse<T> {

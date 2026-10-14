@@ -250,10 +250,12 @@ export async function reprocessDocument(userId: string, documentId: string, stag
 }
 
 export async function deleteDocument(userId: string, documentId: string) {
-  const key = await withUser(userId, async (tx) => {
-    const [row] = await tx.delete(documents).where(and(eq(documents.id, documentId), eq(documents.userId, userId))).returning();
-    if (!row) throw new NotFoundError("Documento");
-    return row.storageKey;
+  const row = await withUser(userId, async (tx) => {
+    const [r] = await tx.delete(documents).where(and(eq(documents.id, documentId), eq(documents.userId, userId))).returning();
+    if (!r) throw new NotFoundError("Documento");
+    return r;
   });
-  if (!key.startsWith("demo/")) await deleteStoredFile(key).catch(() => {});
+  if (!row.storageKey.startsWith("demo/")) await deleteStoredFile(row.storageKey).catch(() => {});
+  // Retira también la copia del índice externo (Gemini File Search)
+  if (row.indexRef) await enqueueJob("document.unindex", { indexRef: row.indexRef }, null);
 }

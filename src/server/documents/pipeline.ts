@@ -8,6 +8,11 @@ import { readStoredFile } from "./storage";
 import { validateUpload } from "./file-validation";
 import { extractDocument, ExtractionError, ocrSchema, structure, type OcrFn } from "./extract";
 import { setDocumentStatus } from "./service";
+import { geminiConfigured, isIndexable } from "../retrieval/gemini";
+
+async function setDocumentIndex(userId: string, documentId: string) {
+  await withUser(userId, (tx) => tx.update(documents).set({ indexProvider: "GEMINI_FILE_SEARCH", indexStatus: "PENDING" }).where(eq(documents.id, documentId)));
+}
 
 function ocrWithAi(userId: string): OcrFn {
   return async ({ kind, data, mimeType }) => {
@@ -81,6 +86,11 @@ export async function handleExtract(job: JobRow) {
       },
     );
     if (ai) await enqueueJob("document.audit", { documentId }, userId);
+    // Índice semántico externo (opcional): independiente de la auditoría
+    if (geminiConfigured() && isIndexable(valid.mimeType)) {
+      await setDocumentIndex(userId, documentId);
+      await enqueueJob("document.index", { documentId }, userId, { maxAttempts: 3 });
+    }
   } catch (e) {
     const isLast = job.attempts >= job.maxAttempts;
     if (e instanceof ExtractionError) {

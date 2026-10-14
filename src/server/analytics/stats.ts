@@ -10,6 +10,8 @@ import {
   documents,
   evaluations,
   libraries,
+  notebookPages,
+  notebooks,
   reviewLogs,
   sessionItems,
   users,
@@ -17,6 +19,7 @@ import {
 import { resolveSettings, type MasteryDimensions } from "@/lib/types";
 import { masteryIndex } from "../memory/mastery";
 import { calibrationFactor } from "../memory/scheduler";
+import { studiableConcept } from "../study/eligible";
 
 const DAY = 86400_000;
 
@@ -31,9 +34,12 @@ export async function getDashboardStats(userId: string, now = new Date()) {
         id: concepts.id,
         name: concepts.name,
         documentId: concepts.documentId,
+        pageId: concepts.pageId,
         documentTitle: documents.title,
         libraryName: libraries.name,
         libraryId: libraries.id,
+        pageTitle: notebookPages.title,
+        notebookTitle: notebooks.title,
         state: conceptMastery.state,
         dueAt: conceptMastery.dueAt,
         dims: conceptMastery.dimensions,
@@ -41,20 +47,28 @@ export async function getDashboardStats(userId: string, now = new Date()) {
         stability: conceptMastery.stability,
       })
       .from(concepts)
-      .innerJoin(documents, eq(documents.id, concepts.documentId))
-      .innerJoin(libraries, eq(libraries.id, documents.libraryId))
+      .leftJoin(documents, eq(documents.id, concepts.documentId))
+      .leftJoin(libraries, eq(libraries.id, documents.libraryId))
+      .leftJoin(notebookPages, eq(notebookPages.id, concepts.pageId))
+      .leftJoin(notebooks, eq(notebooks.id, notebookPages.notebookId))
       .leftJoin(conceptMastery, and(eq(conceptMastery.conceptId, concepts.id), eq(conceptMastery.userId, userId)))
-      .where(and(eq(concepts.userId, userId), eq(documents.status, "READY")));
+      .where(and(eq(concepts.userId, userId), studiableConcept));
 
     const byState = { NEW: 0, LEARNING: 0, CONSOLIDATING: 0, MASTERED: 0, RELEARNING: 0 };
-    const byDoc = new Map<string, { documentId: string; title: string; library: string; libraryId: string; total: number; states: typeof byState }>();
+    /** Progreso agrupado por fuente: cada libro y cada página de apuntes. */
+    const byDoc = new Map<string, { documentId: string; kind: "DOCUMENT" | "NOTE"; href: string; title: string; library: string; total: number; states: typeof byState }>();
     for (const c of conceptRows) {
       const st = c.state ?? "NEW";
       byState[st]++;
-      const d = byDoc.get(c.documentId) ?? { documentId: c.documentId, title: c.documentTitle, library: c.libraryName, libraryId: c.libraryId, total: 0, states: { NEW: 0, LEARNING: 0, CONSOLIDATING: 0, MASTERED: 0, RELEARNING: 0 } };
+      const key = (c.documentId ?? c.pageId)!;
+      const d =
+        byDoc.get(key) ??
+        (c.documentId
+          ? { documentId: key, kind: "DOCUMENT" as const, href: `/app/documents/${key}/concepts`, title: c.documentTitle ?? "Documento", library: c.libraryName ?? "", total: 0, states: { NEW: 0, LEARNING: 0, CONSOLIDATING: 0, MASTERED: 0, RELEARNING: 0 } }
+          : { documentId: key, kind: "NOTE" as const, href: `/app/notebooks/page/${key}`, title: c.pageTitle ?? "Apuntes", library: `Cuaderno · ${c.notebookTitle ?? ""}`, total: 0, states: { NEW: 0, LEARNING: 0, CONSOLIDATING: 0, MASTERED: 0, RELEARNING: 0 } });
       d.total++;
       d.states[st]++;
-      byDoc.set(c.documentId, d);
+      byDoc.set(key, d);
     }
     const dueNow = conceptRows.filter((c) => c.dueAt && c.dueAt <= now).length;
     const upcoming = Array.from({ length: 7 }, (_, i) => {
@@ -64,7 +78,7 @@ export async function getDashboardStats(userId: string, now = new Date()) {
       const to = new Date(from.getTime() + DAY);
       return { date: from.toISOString().slice(0, 10), count: conceptRows.filter((c) => c.dueAt && (i === 0 ? c.dueAt < to : c.dueAt >= from && c.dueAt < to)).length };
     });
-    const illusions = conceptRows.filter((c) => c.illusion).map((c) => ({ id: c.id, name: c.name, documentTitle: c.documentTitle }));
+    const illusions = conceptRows.filter((c) => c.illusion).map((c) => ({ id: c.id, name: c.name, documentTitle: c.documentTitle ?? c.pageTitle ?? "" }));
 
     const errors = await tx
       .select({ conceptId: conceptErrors.conceptId, conceptName: concepts.name, description: conceptErrors.description, count: conceptErrors.count, resolved: conceptErrors.resolved, lastSeenAt: conceptErrors.lastSeenAt })
@@ -199,8 +213,9 @@ export async function getAgenda(userId: string, now = new Date()) {
       .select({
         conceptId: concepts.id,
         name: concepts.name,
-        documentTitle: documents.title,
-        documentId: documents.id,
+        documentTitle: sql<string>`coalesce(${documents.title}, 'Apuntes · ' || ${notebookPages.title})`,
+        documentId: concepts.documentId,
+        pageId: concepts.pageId,
         state: conceptMastery.state,
         dueAt: conceptMastery.dueAt,
         stability: conceptMastery.stability,
@@ -209,8 +224,9 @@ export async function getAgenda(userId: string, now = new Date()) {
       })
       .from(conceptMastery)
       .innerJoin(concepts, eq(concepts.id, conceptMastery.conceptId))
-      .innerJoin(documents, eq(documents.id, concepts.documentId))
-      .where(and(eq(conceptMastery.userId, userId), eq(documents.status, "READY")))
+      .leftJoin(documents, eq(documents.id, concepts.documentId))
+      .leftJoin(notebookPages, eq(notebookPages.id, concepts.pageId))
+      .where(and(eq(conceptMastery.userId, userId), studiableConcept))
       .orderBy(conceptMastery.dueAt)
       .then((rows) => rows.map((r) => ({ ...r, overdue: !!r.dueAt && r.dueAt <= now }))),
   );

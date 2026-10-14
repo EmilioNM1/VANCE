@@ -7,6 +7,8 @@ import { handleAudit } from "../verification/audit";
 import { handleBuildKnowledge } from "../knowledge/build";
 import { evaluateSemantic } from "../evaluation/semantic";
 import { aiConfigured } from "../ai";
+import { handleIndexDocument, handleUnindexDocument } from "../retrieval/jobs";
+import { handleAnalyzeNotes, handleBuildNoteActivities } from "../notes-intelligence/jobs";
 
 let registered = false;
 
@@ -17,6 +19,10 @@ export function registerAllHandlers() {
   registerJobHandler("document.audit", handleAudit);
   registerJobHandler("document.build_knowledge", handleBuildKnowledge);
   registerJobHandler("evaluation.reevaluate", handleReevaluate);
+  registerJobHandler("document.index", handleIndexDocument);
+  registerJobHandler("document.unindex", handleUnindexDocument);
+  registerJobHandler("notes.analyze", handleAnalyzeNotes);
+  registerJobHandler("notes.build_activities", handleBuildNoteActivities);
 }
 
 /** Reevalúa con IA una respuesta que solo tuvo evaluación provisional. */
@@ -35,10 +41,13 @@ export async function handleReevaluate(job: JobRow) {
     const refs = await tx
       .select({ id: claims.id, text: claims.finalText, chunkId: claims.chunkId, page: chunks.page })
       .from(claims)
-      .innerJoin(chunks, eq(chunks.id, claims.chunkId))
+      .leftJoin(chunks, eq(chunks.id, claims.chunkId))
       .where(and(inArray(claims.id, row.act.claimIds), eq(claims.validated, true)));
-    const topic = await tx.select({ id: concepts.id, name: concepts.name }).from(concepts).where(eq(concepts.documentId, row.act.documentId));
-    return { ...row, refs: refs.filter((r) => r.text) as { id: string; text: string; chunkId: string; page: number | null }[], topic };
+    const topic = await tx
+      .select({ id: concepts.id, name: concepts.name })
+      .from(concepts)
+      .where(row.act.documentId ? eq(concepts.documentId, row.act.documentId) : inArray(concepts.id, [row.act.conceptId, ...row.act.relatedConceptIds]));
+    return { ...row, refs: refs.filter((r) => r.text) as { id: string; text: string; chunkId: string | null; page: number | null }[], topic };
   });
   if (!ctx || !ctx.ev.provisional) return;
   const text = (ctx.att.response as { text?: string }).text;

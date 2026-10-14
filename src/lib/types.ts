@@ -37,6 +37,23 @@ export interface ProcessItem {
 
 export type ClozeSegment = { type: "text"; text: string } | { type: "blank"; id: string; length: number };
 
+/** Nodo de documento ProseMirror/Tiptap (forma JSON). */
+export interface NoteNode {
+  type: string;
+  attrs?: Record<string, unknown>;
+  content?: NoteNode[];
+  marks?: { type: string; attrs?: Record<string, unknown> }[];
+  text?: string;
+}
+export type NoteDoc = NoteNode & { type: "doc" };
+export const EMPTY_DOC: NoteDoc = { type: "doc", content: [{ type: "paragraph" }] };
+
+export interface DiagramNode {
+  id: string;
+  /** Texto visible; null = hueco que el estudiante debe completar. */
+  label: string | null;
+}
+
 export interface ActivityPayload {
   scenario?: string;
   conceptNames?: string[];
@@ -45,6 +62,8 @@ export interface ActivityPayload {
   segments?: ClozeSegment[];
   options?: { id: string; text: string }[];
   minWords?: number;
+  /** Esquema para completar: nodos en orden y etiquetas disponibles. */
+  diagram?: { layout: "chain" | "hub"; nodes: DiagramNode[]; edges: [string, string][]; bank: { id: string; text: string }[] };
   /** Instrucción breve de cómo responder. */
   instructions?: string;
 }
@@ -54,6 +73,8 @@ export interface AnswerKey {
   blanks?: Record<string, { answer: string; accept: string[] }>;
   correctOptionId?: string;
   optionConceptIds?: Record<string, string>;
+  /** Esquema: nodo → id de etiqueta correcta. */
+  slots?: Record<string, string>;
 }
 
 export interface ConceptStep {
@@ -89,7 +110,14 @@ export interface EvaluationResult {
   hint?: string;
   /** Explicación completa; solo se muestra en nivel 4 o al final. */
   explanation?: string;
-  references: { claimId: string; chunkId: string; page: number | null; text: string }[];
+  references: {
+    claimId: string;
+    chunkId: string | null;
+    page: number | null;
+    text: string;
+    /** Origen de la referencia para poder volver a ella. */
+    source?: { kind: "DOCUMENT"; documentId: string; title: string } | { kind: "NOTE"; pageId: string; title: string };
+  }[];
   nextRecommendation?: string;
   confusedWithConceptIds: string[];
   /** Detalle determinista (p. ej. pasos mal ubicados). */
@@ -156,4 +184,5 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   PREDICTION: "Predicción y razonamiento",
   CASE: "Caso nuevo",
   RECOGNITION: "Reconocimiento (complementario)",
+  DIAGRAM: "Completa el esquema",
 };

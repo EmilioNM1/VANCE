@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { withUser } from "@/db/client";
 import { activities, chunks, claims, conceptClaims, conceptRelations, concepts, type ActivityType } from "@/db/schema";
@@ -7,10 +7,13 @@ import { aiConfigured, aiStructured } from "../ai";
 
 type ConceptRow = typeof concepts.$inferSelect;
 type ActivityInsert = typeof activities.$inferInsert;
+/** Actividad construida, antes de asignarle usuario y origen (libro o página). */
+export type DraftActivity = Omit<ActivityInsert, "userId" | "documentId" | "pageId" | "origin">;
 export interface SourceClaim {
   id: string;
   text: string;
-  chunkId: string;
+  /** Null cuando la afirmación procede de una página de apuntes. */
+  chunkId: string | null;
 }
 
 // ───────────────────────────── Selección del tipo de actividad ─────────────────────────────
@@ -27,11 +30,13 @@ export function selectActivityTypes(c: { kind: ConceptRow["kind"]; details: Conc
     case "PROCESS":
       t.push("FREE_RECALL");
       if (steps >= 3) t.push("PROCESS_ORDER");
+      if (steps >= 4) t.push("DIAGRAM");
       t.push("PREDICTION");
       break;
     case "MECHANISM":
       t.push("EXPLAIN");
       if (steps >= 3) t.push("PROCESS_ORDER");
+      if (steps >= 4) t.push("DIAGRAM");
       t.push("PREDICTION", "CASE");
       break;
     case "FORMULA":
@@ -43,6 +48,7 @@ export function selectActivityTypes(c: { kind: ConceptRow["kind"]; details: Conc
       break;
     case "STRUCTURE":
       t.push("FREE_RECALL", "RELATION");
+      if ((c.details.components?.length ?? 0) >= 3) t.push("DIAGRAM");
       break;
     default:
       t.push("FREE_RECALL", "CLOZE");
@@ -72,7 +78,7 @@ function seededShuffle<T>(arr: T[], seed: string): T[] {
   return a;
 }
 
-export function buildProcessOrder(concept: Pick<ConceptRow, "id" | "name" | "details">, claimChunk: Map<string, string>): Omit<ActivityInsert, "userId" | "documentId"> | null {
+export function buildProcessOrder(concept: Pick<ConceptRow, "id" | "name" | "details">, claimChunk: Map<string, string | null>): DraftActivity | null {
   const steps = concept.details.steps ?? [];
   if (steps.length < 3) return null;
   const items = steps.map((s, i) => ({ id: `s${i + 1}`, text: s.text }));
@@ -111,7 +117,7 @@ export function buildProcessOrder(concept: Pick<ConceptRow, "id" | "name" | "det
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** Oculta términos clave dentro de una afirmación validada (completar huecos). */
-export function buildCloze(concept: Pick<ConceptRow, "id" | "name" | "details">, sourceClaims: SourceClaim[]): Omit<ActivityInsert, "userId" | "documentId"> | null {
+export function buildCloze(concept: Pick<ConceptRow, "id" | "name" | "details">, sourceClaims: SourceClaim[]): DraftActivity | null {
   const terms = [concept.name, ...(concept.details.keyTerms ?? [])]
     .map((t) => t.trim())
     .filter((t) => t.length >= 3 && t.length <= 60)
@@ -166,7 +172,7 @@ export function buildCloze(concept: Pick<ConceptRow, "id" | "name" | "details">,
       explanation: best.claim.text,
     },
     claimIds: [best.claim.id],
-    chunkIds: [best.claim.chunkId],
+    chunkIds: best.claim.chunkId ? [best.claim.chunkId] : [],
     generatedBy: "RULES",
   };
 }
@@ -176,7 +182,7 @@ export function buildRecognition(
   concept: Pick<ConceptRow, "id" | "name" | "summary" | "kind">,
   others: Pick<ConceptRow, "id" | "name" | "kind">[],
   sourceClaims: SourceClaim[],
-): Omit<ActivityInsert, "userId" | "documentId"> | null {
+): DraftActivity | null {
   const distractors = [...others.filter((o) => o.kind === concept.kind), ...others.filter((o) => o.kind !== concept.kind)]
     .filter((o) => o.id !== concept.id)
     .slice(0, 3);
@@ -205,7 +211,7 @@ export function buildRecognition(
       explanation: `La descripción corresponde a «${concept.name}»: ${concept.summary}`,
     },
     claimIds: sourceClaims.slice(0, 2).map((c) => c.id),
-    chunkIds: [...new Set(sourceClaims.slice(0, 2).map((c) => c.chunkId))],
+    chunkIds: [...new Set(sourceClaims.slice(0, 2).map((c) => c.chunkId).filter((x): x is string => !!x))],
     generatedBy: "RULES",
   };
 }
@@ -259,7 +265,7 @@ Reglas:
 export function validateGeneratedActivity(
   a: GeneratedActivity,
   ctx: { conceptId: string; refToClaim: Map<string, SourceClaim>; keyToConceptId: Map<string, string> },
-): { ok: true; activity: Omit<ActivityInsert, "userId" | "documentId"> } | { ok: false; reason: string } {
+): { ok: true; activity: DraftActivity } | { ok: false; reason: string } {
   const resolve = (refs: string[]) => [...new Set(refs.map((r) => ctx.refToClaim.get(r.trim())?.id).filter((x): x is string => !!x))];
   const toEl = (prefix: string) => (e: z.infer<typeof elementSchema>, i: number): RubricElement | null => {
     const ids = resolve(e.claimRefs);
@@ -303,51 +309,141 @@ export function validateGeneratedActivity(
   };
 }
 
+/**
+ * Completar un esquema: cadena de pasos (procesos/mecanismos) o estructura con sus
+ * componentes. Se ocultan varios nodos y el estudiante arrastra las etiquetas a su sitio.
+ */
+export function buildDiagram(concept: Pick<ConceptRow, "id" | "name" | "details" | "kind">, claimChunk: Map<string, string | null>, conceptClaimIds: string[]): DraftActivity | null {
+  const steps = concept.details.steps ?? [];
+  const chain = steps.length >= 4;
+  const labels = chain ? steps.map((s) => shortLabel(s.text)) : (concept.details.components ?? []).slice(0, 7);
+  if (labels.length < (chain ? 4 : 3)) return null;
+  const nodes = labels.map((l, i) => ({ id: `n${i + 1}`, text: l }));
+  // Oculta ~la mitad de los nodos, nunca todos, de forma determinista
+  const hideCount = Math.max(2, Math.min(nodes.length - 1, Math.round(nodes.length / 2)));
+  const hidden = new Set(seededShuffle(nodes.map((n) => n.id), concept.id + "d").slice(0, hideCount));
+  const bank = seededShuffle(
+    nodes.filter((n) => hidden.has(n.id)).map((n, i) => ({ id: `l${i + 1}`, text: n.text, node: n.id })),
+    concept.id + "b",
+  );
+  const claimIds = chain ? [...new Set(steps.flatMap((s) => s.claimIds))] : conceptClaimIds.slice(0, 4);
+  if (!claimIds.length) return null;
+  return {
+    conceptId: concept.id,
+    type: "DIAGRAM",
+    prompt: chain ? `Completa el esquema del proceso: ${concept.name}.` : `Completa el esquema de los componentes de: ${concept.name}.`,
+    payload: {
+      diagram: {
+        layout: chain ? "chain" : "hub",
+        nodes: nodes.map((n) => ({ id: n.id, label: hidden.has(n.id) ? null : n.text })),
+        edges: chain ? nodes.slice(1).map((n, i) => [nodes[i]!.id, n.id] as [string, string]) : [],
+        bank: bank.map(({ id, text }) => ({ id, text })),
+      },
+      instructions: "Arrastra cada etiqueta a su hueco del esquema (o elígela en el desplegable). Sin consultar el material.",
+    },
+    answerKey: { slots: Object.fromEntries(bank.map((b) => [b.node, b.id])) },
+    rubric: {
+      referenceAnswer: nodes.map((n, i) => `${i + 1}. ${n.text}`).join("\n"),
+      essentialElements: [...hidden].map((id) => ({ id, description: `Hueco ${id.slice(1)}`, keyTerms: [], weight: 1, claimIds })),
+      relations: [],
+      criticalErrors: [],
+      optionalElements: [],
+      precision: "EXACT",
+      hints: [
+        chain ? "Sigue el orden en que ocurre cada paso: ¿qué provoca el siguiente?" : "Piensa en la función de cada componente.",
+        "Fíjate en los nodos visibles que rodean cada hueco.",
+        `El primer elemento del esquema es: «${nodes[0]!.text}».`,
+      ],
+      explanation: `Esquema completo de «${concept.name}»:\n${nodes.map((n, i) => `${i + 1}. ${n.text}`).join("\n")}`,
+    },
+    claimIds,
+    chunkIds: [...new Set(claimIds.map((c) => claimChunk.get(c)).filter((x): x is string => !!x))],
+    generatedBy: "RULES",
+  };
+}
+
+function shortLabel(t: string) {
+  const clean = t.replace(/\s+/g, " ").trim().replace(/\.$/, "");
+  return clean.length <= 90 ? clean : `${clean.slice(0, 87).replace(/\s\S*$/, "")}…`;
+}
+
 // ───────────────────────────── Orquestación ─────────────────────────────
 
-export async function generateActivitiesForDocument(userId: string, documentId: string): Promise<{ created: number; rejected: number }> {
+export interface GenerationTarget {
+  documentId?: string;
+  pageId?: string;
+  origin: "BOOK" | "NOTES" | "COMBINED";
+}
+
+/**
+ * Genera actividades para un conjunto de conceptos (de un libro o de una página).
+ * - Reutiliza las actividades ya existentes: solo crea los tipos que faltan (sin gasto de IA repetido).
+ * - `relatedConceptIds` permite incluir conceptos de otra fuente (p. ej. del libro vinculado)
+ *   para crear actividades que relacionen apuntes y libro.
+ */
+export async function generateActivitiesForConcepts(
+  userId: string,
+  conceptIds: string[],
+  target: GenerationTarget,
+  opts: { replace?: boolean; extraRelatedConceptIds?: string[]; onlyTypes?: ActivityType[] } = {},
+): Promise<{ created: number; rejected: number; reused: number }> {
+  if (!conceptIds.length) return { created: 0, rejected: 0, reused: 0 };
+  const allIds = [...new Set([...conceptIds, ...(opts.extraRelatedConceptIds ?? [])])];
   const data = await withUser(userId, async (tx) => {
-    const cs = await tx.select().from(concepts).where(eq(concepts.documentId, documentId));
-    const links = cs.length
-      ? await tx
-          .select({ conceptId: conceptClaims.conceptId, id: claims.id, text: claims.finalText, chunkId: claims.chunkId, validated: claims.validated })
-          .from(conceptClaims)
-          .innerJoin(claims, eq(claims.id, conceptClaims.claimId))
-          .where(inArray(conceptClaims.conceptId, cs.map((c) => c.id)))
-      : [];
-    const rels = await tx.select().from(conceptRelations).where(eq(conceptRelations.documentId, documentId));
-    await tx.delete(activities).where(eq(activities.documentId, documentId));
-    return { cs, links: links.filter((l) => l.validated && l.text), rels };
+    const cs = await tx.select().from(concepts).where(inArray(concepts.id, allIds));
+    const links = await tx
+      .select({ conceptId: conceptClaims.conceptId, id: claims.id, text: claims.finalText, chunkId: claims.chunkId, validated: claims.validated })
+      .from(conceptClaims)
+      .innerJoin(claims, eq(claims.id, conceptClaims.claimId))
+      .where(inArray(conceptClaims.conceptId, allIds));
+    const rels = await tx
+      .select()
+      .from(conceptRelations)
+      .where(or(inArray(conceptRelations.fromConceptId, allIds), inArray(conceptRelations.toConceptId, allIds)));
+    if (opts.replace) await tx.delete(activities).where(inArray(activities.conceptId, conceptIds));
+    const existing = await tx.select({ conceptId: activities.conceptId, type: activities.type }).from(activities).where(and(inArray(activities.conceptId, conceptIds), eq(activities.retired, false)));
+    return { cs, links: links.filter((l) => l.validated && l.text), rels, existing };
   });
   const claimsByConcept = new Map<string, SourceClaim[]>();
   for (const l of data.links) claimsByConcept.set(l.conceptId, [...(claimsByConcept.get(l.conceptId) ?? []), { id: l.id, text: l.text!, chunkId: l.chunkId }]);
   const claimChunk = new Map(data.links.map((l) => [l.id, l.chunkId]));
+  const has = new Set(data.existing.map((e) => `${e.conceptId}:${e.type}`));
   const relCount = new Map<string, number>();
   for (const r of data.rels) {
     relCount.set(r.fromConceptId, (relCount.get(r.fromConceptId) ?? 0) + 1);
     relCount.set(r.toConceptId, (relCount.get(r.toConceptId) ?? 0) + 1);
   }
+  const targetConcepts = data.cs.filter((c) => conceptIds.includes(c.id));
+  const extra = new Set(opts.extraRelatedConceptIds ?? []);
 
-  const toInsert: Omit<ActivityInsert, "userId" | "documentId">[] = [];
+  const toInsert: DraftActivity[] = [];
   let rejected = 0;
+  let reused = 0;
   const aiWork: { concept: ConceptRow; types: ActivityType[] }[] = [];
-  for (const c of data.cs) {
+  for (const c of targetConcepts) {
     const src = claimsByConcept.get(c.id) ?? [];
     if (!src.length) continue; // sin fuente válida no se genera nada
-    const types = selectActivityTypes(c, (relCount.get(c.id) ?? 0) > 0);
-    if (types.includes("PROCESS_ORDER")) {
+    let types = selectActivityTypes(c, (relCount.get(c.id) ?? 0) > 0 || extra.size > 0);
+    if (opts.onlyTypes?.length) types = types.filter((t) => opts.onlyTypes!.includes(t));
+    const missing = types.filter((t) => !has.has(`${c.id}:${t}`));
+    reused += types.length - missing.length;
+    if (missing.includes("PROCESS_ORDER")) {
       const a = buildProcessOrder(c, claimChunk);
       if (a) toInsert.push(a);
     }
-    if (types.includes("CLOZE")) {
+    if (missing.includes("DIAGRAM")) {
+      const a = buildDiagram(c, claimChunk, src.map((x) => x.id));
+      if (a) toInsert.push(a);
+    }
+    if (missing.includes("CLOZE")) {
       const a = buildCloze(c, src);
       if (a) toInsert.push(a);
     }
-    if (types.includes("RECOGNITION")) {
+    if (missing.includes("RECOGNITION")) {
       const a = buildRecognition(c, data.cs, src);
       if (a) toInsert.push(a);
     }
-    const aiTypes = types.filter((t) => AI_TYPES.includes(t)).slice(0, c.importance >= 3 ? 4 : 3);
+    const aiTypes = missing.filter((t) => AI_TYPES.includes(t)).slice(0, c.importance >= 3 ? 4 : 3);
     if (aiTypes.length) aiWork.push({ concept: c, types: aiTypes });
   }
 
@@ -362,16 +458,21 @@ export async function generateActivitiesForDocument(userId: string, documentId: 
         const key = `K${k + 1}`;
         keyToConceptId.set(key, w.concept.id);
         const src = claimsByConcept.get(w.concept.id) ?? [];
-        // Incluye afirmaciones de conceptos relacionados para actividades de relación
-        const relatedIds = data.rels
-          .filter((r) => r.fromConceptId === w.concept.id || r.toConceptId === w.concept.id)
-          .map((r) => (r.fromConceptId === w.concept.id ? r.toConceptId : r.fromConceptId))
+        // Conceptos relacionados (incluidos los del libro vinculado) para actividades de relación
+        const relatedIds = [
+          ...data.rels
+            .filter((r) => r.fromConceptId === w.concept.id || r.toConceptId === w.concept.id)
+            .map((r) => (r.fromConceptId === w.concept.id ? r.toConceptId : r.fromConceptId)),
+          ...extra,
+        ]
+          .filter((x, idx, arr) => x !== w.concept.id && arr.indexOf(x) === idx)
           .slice(0, 3);
         const relatedLines = relatedIds.map((rid, j) => {
           const rk = `${key}R${j + 1}`;
           keyToConceptId.set(rk, rid);
           const rc = (claimsByConcept.get(rid) ?? []).slice(0, 3);
-          return `  Relacionado [${rk}] ${nameById.get(rid)}:\n${rc
+          const tag = extra.has(rid) ? " (del libro de referencia)" : "";
+          return `  Relacionado [${rk}] ${nameById.get(rid)}${tag}:\n${rc
             .map((c) => {
               const ref = `C${++n}`;
               refToClaim.set(ref, c);
@@ -399,7 +500,8 @@ export async function generateActivitiesForDocument(userId: string, documentId: 
           operation: "activities.generate",
           userId,
           effort: "medium",
-          system: GEN_SYSTEM,
+          cache: true,
+          system: GEN_SYSTEM + (target.origin === "COMBINED" ? "\nCuando haya conceptos «del libro de referencia», prioriza actividades RELATION y CASE que obliguen a conectar los apuntes del estudiante con el libro." : ""),
           content: [{ type: "text", text: blocks.join("\n\n") }],
           schema: generatedActivitiesSchema,
         });
@@ -420,8 +522,24 @@ export async function generateActivitiesForDocument(userId: string, documentId: 
   }
 
   if (toInsert.length)
-    await withUser(userId, (tx) => tx.insert(activities).values(toInsert.map((a) => ({ ...a, userId, documentId }))));
-  return { created: toInsert.length, rejected };
+    await withUser(userId, (tx) =>
+      tx.insert(activities).values(
+        toInsert.map((a) => ({
+          ...a,
+          userId,
+          documentId: target.documentId ?? null,
+          pageId: target.pageId ?? null,
+          origin: a.relatedConceptIds?.some((r) => extra.has(r)) ? ("COMBINED" as const) : target.origin === "COMBINED" ? "NOTES" as const : target.origin,
+        })),
+      ),
+    );
+  return { created: toInsert.length, rejected, reused };
+}
+
+export async function generateActivitiesForDocument(userId: string, documentId: string): Promise<{ created: number; rejected: number }> {
+  const ids = await withUser(userId, (tx) => tx.select({ id: concepts.id }).from(concepts).where(eq(concepts.documentId, documentId)));
+  const r = await generateActivitiesForConcepts(userId, ids.map((i) => i.id), { documentId, origin: "BOOK" }, { replace: true });
+  return { created: r.created, rejected: r.rejected };
 }
 
 /** Comprueba que una actividad sigue respaldada por afirmaciones validadas. */
@@ -430,7 +548,8 @@ export async function activityHasValidSource(userId: string, activityId: string)
     const [a] = await tx.select().from(activities).where(eq(activities.id, activityId));
     if (!a || !a.claimIds.length) return false;
     const valid = await tx.select({ id: claims.id }).from(claims).where(and(inArray(claims.id, a.claimIds), eq(claims.validated, true)));
-    const ch = await tx.select({ id: chunks.id }).from(chunks).where(inArray(chunks.id, a.chunkIds.length ? a.chunkIds : ["00000000-0000-0000-0000-000000000000"]));
+    if (a.pageId && !a.documentId) return valid.length > 0;
+    const ch = a.chunkIds.length ? await tx.select({ id: chunks.id }).from(chunks).where(inArray(chunks.id, a.chunkIds)) : [];
     return valid.length > 0 && ch.length > 0;
   });
 }

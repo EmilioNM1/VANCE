@@ -18,7 +18,10 @@ import {
   users,
   type ActivityType,
   type ItemState,
+  notebookPages,
+  pageConceptLinks,
 } from "@/db/schema";
+import { studiableConcept } from "./eligible";
 import { resolveSettings, type EvaluationResult, type MasteryDimensions } from "@/lib/types";
 import { ConflictError, NotFoundError } from "../documents/service";
 import { evaluateAttempt, parseResponse } from "../evaluation";
@@ -29,9 +32,13 @@ type ActivityRow = typeof activities.$inferSelect;
 type MasteryRow = typeof conceptMastery.$inferSelect;
 
 export const startSchema = z.object({
-  mode: z.enum(["DAILY", "DOCUMENT", "CONCEPT", "CUMULATIVE"]),
+  mode: z.enum(["DAILY", "DOCUMENT", "CONCEPT", "CUMULATIVE", "PAGE", "SECTION"]),
   documentId: z.string().uuid().optional(),
   conceptId: z.string().uuid().optional(),
+  pageId: z.string().uuid().optional(),
+  notebookSectionId: z.string().uuid().optional(),
+  /** Qué practicar dentro de una página/sección: todo, errores previos o un origen concreto. */
+  focus: z.enum(["ALL", "ERRORS", "NOTES", "BOOK", "COMBINED"]).optional(),
   size: z.number().int().min(3).max(40).optional(),
 });
 
@@ -100,19 +107,47 @@ async function planQueue(tx: Tx, userId: string, input: z.infer<typeof startSche
   const size = input.size ?? 12;
 
   const docFilter = input.documentId ? eq(concepts.documentId, input.documentId) : undefined;
+  // Página o sección de un cuaderno: conceptos propios de los apuntes + conceptos del libro vinculados
+  let scopeIds: string[] | null = null;
+  if ((input.mode === "PAGE" && input.pageId) || (input.mode === "SECTION" && input.notebookSectionId)) {
+    const pageIds =
+      input.mode === "PAGE"
+        ? [input.pageId!]
+        : (await tx.select({ id: notebookPages.id }).from(notebookPages).where(eq(notebookPages.sectionId, input.notebookSectionId!))).map((p) => p.id);
+    if (!pageIds.length) return [];
+    const linked = await tx.select({ id: pageConceptLinks.conceptId, origin: pageConceptLinks.origin }).from(pageConceptLinks).where(inArray(pageConceptLinks.pageId, pageIds));
+    const own = await tx.select({ id: concepts.id }).from(concepts).where(inArray(concepts.pageId, pageIds));
+    const focus = input.focus ?? "ALL";
+    scopeIds = [
+      ...new Set([
+        ...(focus === "BOOK" ? [] : own.map((o) => o.id)),
+        ...linked.filter((l) => (focus === "NOTES" ? l.origin === "NOTE" : focus === "BOOK" ? l.origin === "BOOK" : true)).map((l) => l.id),
+      ]),
+    ];
+    if (!scopeIds.length) return [];
+  }
   const conceptRows = await tx
-    .select({ id: concepts.id, documentId: concepts.documentId, importance: concepts.importance, createdAt: concepts.createdAt })
+    .select({ id: concepts.id, documentId: concepts.documentId, pageId: concepts.pageId, importance: concepts.importance, createdAt: concepts.createdAt })
     .from(concepts)
-    .innerJoin(documents, eq(documents.id, concepts.documentId))
-    .where(and(eq(concepts.userId, userId), eq(documents.status, "READY"), docFilter, input.conceptId ? eq(concepts.id, input.conceptId) : undefined));
+    .where(
+      and(
+        eq(concepts.userId, userId),
+        studiableConcept,
+        docFilter,
+        input.conceptId ? eq(concepts.id, input.conceptId) : undefined,
+        scopeIds ? inArray(concepts.id, scopeIds) : undefined,
+      ),
+    );
   if (!conceptRows.length) return [];
   const ids = conceptRows.map((c) => c.id);
   const mastery = await tx.select().from(conceptMastery).where(and(eq(conceptMastery.userId, userId), inArray(conceptMastery.conceptId, ids)));
   const mById = new Map(mastery.map((m) => [m.conceptId, m]));
+  const originFilter =
+    input.focus === "NOTES" ? eq(activities.origin, "NOTES") : input.focus === "BOOK" ? eq(activities.origin, "BOOK") : input.focus === "COMBINED" ? eq(activities.origin, "COMBINED") : undefined;
   const acts = await tx
     .select({ id: activities.id, type: activities.type, conceptId: activities.conceptId })
     .from(activities)
-    .where(and(inArray(activities.conceptId, ids), eq(activities.retired, false)));
+    .where(and(inArray(activities.conceptId, ids), eq(activities.retired, false), originFilter));
   const actsBy = new Map<string, { id: string; type: ActivityType }[]>();
   for (const a of acts) actsBy.set(a.conceptId, [...(actsBy.get(a.conceptId) ?? []), a]);
   const recurring = await tx
@@ -132,7 +167,8 @@ async function planQueue(tx: Tx, userId: string, input: z.infer<typeof startSche
   const recentBy = new Map<string, ActivityType[]>();
   for (const r of recentAttempts) recentBy.set(r.conceptId, [...(recentBy.get(r.conceptId) ?? []), r.type]);
 
-  const docOf = new Map(conceptRows.map((c) => [c.id, c.documentId]));
+  // "Fuente" de cada concepto (libro o página) para intercalar materiales distintos
+  const docOf = new Map(conceptRows.map((c) => [c.id, (c.documentId ?? c.pageId)!]));
   const plan: Planned[] = [];
   const add = (conceptId: string, reason: string) => {
     if (plan.some((p) => p.conceptId === conceptId)) return;
@@ -162,6 +198,27 @@ async function planQueue(tx: Tx, userId: string, input: z.infer<typeof startSche
       plan.push({ conceptId: input.conceptId, documentId: docOf.get(input.conceptId)!, activityId: a.id, reason: "Otra forma de recuperar el mismo concepto", noHints: false });
     }
     return plan;
+  }
+
+  if (input.mode === "PAGE" || input.mode === "SECTION") {
+    const errorsOnly = input.focus === "ERRORS";
+    const unresolved = new Set(
+      (
+        await tx
+          .select({ conceptId: conceptErrors.conceptId })
+          .from(conceptErrors)
+          .where(and(eq(conceptErrors.userId, userId), eq(conceptErrors.resolved, false), inArray(conceptErrors.conceptId, ids)))
+      ).map((r) => r.conceptId),
+    );
+    const ordered = [...conceptRows].sort(
+      (a, b) => Number(unresolved.has(b.id)) - Number(unresolved.has(a.id)) || (mById.get(a.id)?.dueAt?.getTime() ?? 0) - (mById.get(b.id)?.dueAt?.getTime() ?? 0) || b.importance - a.importance,
+    );
+    for (const c of ordered) {
+      if (plan.length >= size) break;
+      if (errorsOnly && !unresolved.has(c.id)) continue;
+      add(c.id, unresolved.has(c.id) ? "Repasar un error anterior" : mById.has(c.id) ? "Repaso del tema" : "Primera recuperación");
+    }
+    return interleave(plan);
   }
 
   // 1) Repasos vencidos (los olvidados primero)
@@ -208,14 +265,27 @@ export async function startSession(userId: string, raw: unknown) {
           eq(studySessions.status, "ACTIVE"),
           eq(studySessions.mode, input.mode),
           input.documentId ? eq(studySessions.documentId, input.documentId) : isNull(studySessions.documentId),
+          input.pageId ? eq(studySessions.pageId, input.pageId) : isNull(studySessions.pageId),
+          input.notebookSectionId ? eq(studySessions.notebookSectionId, input.notebookSectionId) : isNull(studySessions.notebookSectionId),
+          eq(studySessions.focus, input.focus ?? "ALL"),
         ),
       )
       .orderBy(desc(studySessions.startedAt))
       .limit(1);
     if (active && input.mode !== "CONCEPT") return { sessionId: active.id, resumed: true };
     const plan = await planQueue(tx, userId, input, new Date());
-    if (!plan.length) throw new ConflictError("No hay actividades disponibles ahora mismo. Procesa un documento o vuelve cuando tengas repasos pendientes.");
-    const [s] = await tx.insert(studySessions).values({ userId, mode: input.mode, documentId: input.documentId ?? null }).returning();
+    if (!plan.length)
+      throw new ConflictError(
+        input.mode === "PAGE" || input.mode === "SECTION"
+          ? input.focus === "ERRORS"
+            ? "No hay errores pendientes en este tema. ¡Bien!"
+            : "Esta página aún no tiene actividades. Usa «Crear preguntas de repaso» primero."
+          : "No hay actividades disponibles ahora mismo. Procesa un documento o vuelve cuando tengas repasos pendientes.",
+      );
+    const [s] = await tx
+      .insert(studySessions)
+      .values({ userId, mode: input.mode, documentId: input.documentId ?? null, pageId: input.pageId ?? null, notebookSectionId: input.notebookSectionId ?? null, focus: input.focus ?? "ALL" })
+      .returning();
     await tx.insert(sessionItems).values(plan.map((p, i) => ({ userId, sessionId: s!.id, activityId: p.activityId, ord: i, reason: p.reason, noHints: p.noHints })));
     return { sessionId: s!.id, resumed: false };
   });
@@ -241,6 +311,8 @@ export interface ItemView {
     conceptId: string;
     conceptName: string | null;
     documentTitle: string;
+    origin: "BOOK" | "NOTES" | "COMBINED";
+    source: { kind: "DOCUMENT" | "NOTE"; id: string };
   };
   hints: { level: number; text: string }[];
   explanation: string | null;
@@ -294,10 +366,11 @@ export async function getSessionView(userId: string, sessionId: string): Promise
 
 async function buildItemView(tx: Tx, userId: string, item: typeof sessionItems.$inferSelect): Promise<ItemView> {
   const [row] = await tx
-    .select({ a: activities, conceptName: concepts.name, documentTitle: documents.title })
+    .select({ a: activities, conceptName: concepts.name, documentTitle: documents.title, pageTitle: notebookPages.title })
     .from(activities)
     .innerJoin(concepts, eq(concepts.id, activities.conceptId))
-    .innerJoin(documents, eq(documents.id, activities.documentId))
+    .leftJoin(documents, eq(documents.id, activities.documentId))
+    .leftJoin(notebookPages, eq(notebookPages.id, activities.pageId))
     .where(eq(activities.id, item.activityId));
   const [u] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId));
   const settings = resolveSettings(u?.settings);
@@ -329,7 +402,9 @@ async function buildItemView(tx: Tx, userId: string, item: typeof sessionItems.$
       payload: a.payload,
       conceptId: a.conceptId,
       conceptName: (a.type === "RECOGNITION" || a.type === "CLOZE") && item.state !== "DONE" ? null : row!.conceptName,
-      documentTitle: row!.documentTitle,
+      documentTitle: row!.documentTitle ?? (row!.pageTitle ? `Apuntes · ${row!.pageTitle}` : ""),
+      origin: a.origin,
+      source: a.documentId ? { kind: "DOCUMENT" as const, id: a.documentId } : { kind: "NOTE" as const, id: a.pageId! },
     },
     hints: hints.filter((h) => h.level < 4).map((h) => ({ level: h.level, text: h.text })),
     explanation: item.explanationShown ? (hints.find((h) => h.level === 4)?.text ?? a.rubric.explanation) : null,
@@ -423,18 +498,43 @@ export async function submitAttempt(userId: string, itemId: string, raw: unknown
     if (!a) throw new NotFoundError("Actividad");
     const refs = a.claimIds.length
       ? await tx
-          .select({ id: claims.id, text: claims.finalText, chunkId: claims.chunkId, page: chunks.page })
+          .select({
+            id: claims.id,
+            text: claims.finalText,
+            chunkId: claims.chunkId,
+            page: chunks.page,
+            documentId: claims.documentId,
+            pageId: claims.pageId,
+            documentTitle: documents.title,
+            pageTitle: notebookPages.title,
+          })
           .from(claims)
-          .innerJoin(chunks, eq(chunks.id, claims.chunkId))
+          .leftJoin(chunks, eq(chunks.id, claims.chunkId))
+          .leftJoin(documents, eq(documents.id, claims.documentId))
+          .leftJoin(notebookPages, eq(notebookPages.id, claims.pageId))
           .where(and(inArray(claims.id, a.claimIds), eq(claims.validated, true)))
       : [];
-    const topic = await tx.select({ id: concepts.id, name: concepts.name }).from(concepts).where(eq(concepts.documentId, a.documentId));
+    const topic = await tx
+      .select({ id: concepts.id, name: concepts.name })
+      .from(concepts)
+      .where(a.documentId ? eq(concepts.documentId, a.documentId) : or(eq(concepts.pageId, a.pageId!), inArray(concepts.id, [a.conceptId, ...a.relatedConceptIds])));
     const errs = await tx
       .select({ tag: conceptErrors.tag, description: conceptErrors.description, count: conceptErrors.count })
       .from(conceptErrors)
       .where(and(eq(conceptErrors.userId, userId), eq(conceptErrors.conceptId, a.conceptId), eq(conceptErrors.resolved, false)));
     const [u] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId));
-    return { item, activity: a, refs: refs.filter((r) => r.text) as { id: string; text: string; chunkId: string; page: number | null }[], topic, errs, settings: resolveSettings(u?.settings) };
+    const referenceClaims = refs
+      .filter((r) => r.text)
+      .map((r) => ({
+        id: r.id,
+        text: r.text!,
+        chunkId: r.chunkId,
+        page: r.page,
+        source: r.documentId
+          ? { kind: "DOCUMENT" as const, documentId: r.documentId, title: r.documentTitle ?? "Documento" }
+          : { kind: "NOTE" as const, pageId: r.pageId!, title: r.pageTitle ?? "Apuntes" },
+      }));
+    return { item, activity: a, refs: referenceClaims, topic, errs, settings: resolveSettings(u?.settings) };
   });
   const { item, activity, settings } = ctx;
   const response = parseResponse(activity.type, body.response);
@@ -466,7 +566,7 @@ export async function submitAttempt(userId: string, itemId: string, raw: unknown
         phase,
         attemptNo: fresh.attemptsCount + 1,
         response,
-        inputMode: body.inputMode ?? (["PROCESS_ORDER", "CLOZE", "RECOGNITION"].includes(activity.type) ? "INTERACTIVE" : "TEXT"),
+        inputMode: body.inputMode ?? (["PROCESS_ORDER", "CLOZE", "RECOGNITION", "DIAGRAM"].includes(activity.type) ? "INTERACTIVE" : "TEXT"),
         confidence: body.confidence ?? null,
         hintLevelAtSubmit: fresh.hintLevel,
         latencyMs,
@@ -604,14 +704,12 @@ export async function dueCount(userId: string, until = new Date()) {
       .select({ n: sql<number>`count(*)::int` })
       .from(conceptMastery)
       .innerJoin(concepts, eq(concepts.id, conceptMastery.conceptId))
-      .innerJoin(documents, eq(documents.id, concepts.documentId))
-      .where(and(eq(conceptMastery.userId, userId), lte(conceptMastery.dueAt, until), eq(documents.status, "READY")));
+      .where(and(eq(conceptMastery.userId, userId), lte(conceptMastery.dueAt, until), studiableConcept));
     const [n] = await tx
       .select({ n: sql<number>`count(*)::int` })
       .from(concepts)
-      .innerJoin(documents, eq(documents.id, concepts.documentId))
       .leftJoin(conceptMastery, and(eq(conceptMastery.conceptId, concepts.id), eq(conceptMastery.userId, userId)))
-      .where(and(eq(concepts.userId, userId), eq(documents.status, "READY"), or(isNull(conceptMastery.conceptId))));
+      .where(and(eq(concepts.userId, userId), studiableConcept, isNull(conceptMastery.conceptId)));
     return { due: r?.n ?? 0, fresh: n?.n ?? 0 };
   });
 }
