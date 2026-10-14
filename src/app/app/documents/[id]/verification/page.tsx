@@ -7,6 +7,8 @@ import { Alert, Card, EmptyState, PageHeader, Stat, clsx } from "@/components/ui
 import { BulkAcceptButton, ClaimCard } from "@/components/claim-card";
 import { ActionButton } from "@/components/document-client";
 
+import { Page } from "@/components/page-container";
+
 export const metadata = { title: "Verificación" };
 export const dynamic = "force-dynamic";
 
@@ -31,7 +33,7 @@ export default async function VerificationPage({ params, searchParams }: { param
   const canBuild = ["REVIEW", "READY", "FAILED"].includes(doc.status) && !!doc.auditCompletedAt && !doc.isDemo;
 
   return (
-    <>
+    <Page wide>
       <PageHeader back={{ href: `/app/documents/${id}`, label: doc.title }} title="Informe de verificación" subtitle="La fidelidad al documento y la validez científica son cosas distintas: un texto bien transcrito puede contener errores." />
       {!doc.auditCompletedAt && !doc.isDemo ? (
         <EmptyState title="La auditoría aún no ha terminado">Vuelve cuando el documento esté en «Revisión pendiente».</EmptyState>
@@ -61,14 +63,14 @@ export default async function VerificationPage({ params, searchParams }: { param
               />
             </Card>
           )}
-          <div className="mb-4 mt-4 flex gap-1 overflow-x-auto border-b border-ink-100 dark:border-ink-800" role="tablist">
+          <div className="mb-4 mt-4 flex gap-1 overflow-x-auto border-b border-line" role="tablist">
             {TABS.map((t) => (
               <Link
                 key={t.key}
                 href={`?tab=${t.key}`}
                 role="tab"
                 aria-selected={tab === t.key}
-                className={clsx("whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium", tab === t.key ? "border-accent-600 text-accent-700 dark:text-accent-300" : "border-transparent text-ink-500 hover:text-ink-800")}
+                className={clsx("whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium", tab === t.key ? "border-accent-600 text-accent-700 dark:text-accent-300" : "border-transparent text-muted hover:text-ink-800")}
               >
                 {t.label} ({count(t.key)})
               </Link>
@@ -84,6 +86,6 @@ export default async function VerificationPage({ params, searchParams }: { param
           )}
         </>
       )}
-    </>
+    </Page>
   );
 }

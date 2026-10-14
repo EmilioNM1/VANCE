@@ -66,16 +66,16 @@ export function ClaimCard({ claim, readOnly }: { claim: ClaimDTO; readOnly?: boo
   };
 
   return (
-    <article className="rounded-xl border border-ink-100 bg-white p-4 dark:border-ink-800 dark:bg-ink-900">
+    <article className="rounded-xl border border-line bg-surface p-4">
       <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
         <Badge tone={v.tone}>{v.label}</Badge>
         <Badge>{claim.kind.replace("_", " ").toLowerCase()}</Badge>
-        {claim.page && <span className="text-ink-500">Página {claim.page}</span>}
+        {claim.page && <span className="text-muted">Página {claim.page}</span>}
         {claim.validated ? <Badge tone="success">Se usará para aprender</Badge> : <Badge tone="neutral">No se usará</Badge>}
         {claim.decision !== "PENDING" && <Badge tone="accent">{DECISION[claim.decision]}</Badge>}
         {!claim.quoteVerified && <Badge tone="warning">Cita no localizada en el texto</Badge>}
       </div>
-      <p className={claim.proposedText && claim.decision === "ACCEPTED_CORRECTION" ? "text-sm text-ink-400 line-through" : "text-sm"}>
+      <p className={claim.proposedText && claim.decision === "ACCEPTED_CORRECTION" ? "text-sm text-muted line-through" : "text-sm"}>
         <span className="sr-only">Texto original: </span>
         {claim.originalText}
       </p>
@@ -86,7 +86,7 @@ export function ClaimCard({ claim, readOnly }: { claim: ClaimDTO; readOnly?: boo
         </p>
       )}
       {claim.decision === "EDITED" && claim.finalText && <p className="mt-2 rounded-lg bg-accent-50 px-3 py-2 text-sm dark:bg-accent-900/30">Tu versión: {claim.finalText}</p>}
-      {claim.rationale && <p className="mt-2 text-xs leading-relaxed text-ink-500">{claim.rationale}</p>}
+      {claim.rationale && <p className="mt-2 text-xs leading-relaxed text-muted">{claim.rationale}</p>}
       {claim.sources.length > 0 && (
         <ul className="mt-3 space-y-1.5">
           {claim.sources.map((s) => (
@@ -95,23 +95,23 @@ export function ClaimCard({ claim, readOnly }: { claim: ClaimDTO; readOnly?: boo
               <a href={s.url} target="_blank" rel="noopener noreferrer nofollow" className="text-accent-600 underline">
                 {s.title}
               </a>
-              <span className="text-ink-500">
+              <span className="text-muted">
                 {" "}
                 · {s.retrievedVia === "PUBMED" ? `PubMed PMID ${s.pmid}${s.journal ? `, ${s.journal}` : ""}${s.year ? ` (${s.year})` : ""}${s.doi ? `, DOI ${s.doi}` : ""}` : "búsqueda web"}
               </span>
-              {s.excerpt && <p className="mt-0.5 italic text-ink-500">«{s.excerpt}»</p>}
+              {s.excerpt && <p className="mt-0.5 italic text-muted">«{s.excerpt}»</p>}
             </li>
           ))}
         </ul>
       )}
       {claim.quote && (
-        <details className="mt-2 text-xs text-ink-500">
+        <details className="mt-2 text-xs text-muted">
           <summary className="cursor-pointer">Fragmento original</summary>
-          <blockquote className="mt-1 border-l-2 border-ink-200 pl-2">{claim.quote}</blockquote>
+          <blockquote className="mt-1 border-l-2 border-line pl-2">{claim.quote}</blockquote>
         </details>
       )}
       {!readOnly && (
-        <div className="mt-3 flex flex-wrap gap-2 border-t border-ink-100 pt-3 dark:border-ink-800">
+        <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-3">
           {editing ? (
             <div className="w-full">
               <label className="sr-only" htmlFor={`edit-${claim.id}`}>Texto corregido</label>

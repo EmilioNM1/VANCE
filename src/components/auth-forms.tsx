@@ -41,7 +41,7 @@ export function LoginForm() {
         });
       }}
     >
-      <h1 className="text-xl font-semibold">Iniciar sesión</h1>
+      <h1 className="title-serif text-2xl">Iniciar sesión</h1>
       {error && <Alert tone="danger">{error}</Alert>}
       <div>
         <label className="label" htmlFor="email">Correo electrónico</label>
@@ -76,7 +76,7 @@ export function RegisterForm() {
         });
       }}
     >
-      <h1 className="text-xl font-semibold">Crear cuenta</h1>
+      <h1 className="title-serif text-2xl">Crear cuenta</h1>
       {error && <Alert tone="danger">{error}</Alert>}
       <div>
         <label className="label" htmlFor="name">Nombre</label>
@@ -89,10 +89,10 @@ export function RegisterForm() {
       <div>
         <label className="label" htmlFor="password">Contraseña</label>
         <input className="input" id="password" name="password" type="password" autoComplete="new-password" minLength={10} required />
-        <p className="mt-1 text-xs text-ink-500">Mínimo 10 caracteres.</p>
+        <p className="mt-1 text-xs text-muted">Mínimo 10 caracteres.</p>
       </div>
       <Button type="submit" className="w-full" loading={loading}>Crear cuenta</Button>
-      <p className="text-xs leading-relaxed text-ink-500">
+      <p className="text-xs leading-relaxed text-muted">
         Tus documentos y tu progreso son privados. El contenido que subas se procesa con un proveedor de IA externo para analizarlo y evaluarlo.
       </p>
       <p className="text-center text-sm">
@@ -108,7 +108,7 @@ export function ForgotForm() {
   if (sent)
     return (
       <div className="space-y-3">
-        <h1 className="text-xl font-semibold">Revisa tu correo</h1>
+        <h1 className="title-serif text-2xl">Revisa tu correo</h1>
         <Alert tone="success">Si existe una cuenta con ese correo, te hemos enviado un enlace válido durante 1 hora.</Alert>
         {!sent.smtpConfigured && (
           <Alert tone="warning">
@@ -127,7 +127,7 @@ export function ForgotForm() {
         void run(async () => setSent(await api<{ smtpConfigured: boolean }>("/api/auth/forgot", { body: { email: f.get("email") } })));
       }}
     >
-      <h1 className="text-xl font-semibold">Recuperar contraseña</h1>
+      <h1 className="title-serif text-2xl">Recuperar contraseña</h1>
       {error && <Alert tone="danger">{error}</Alert>}
       <div>
         <label className="label" htmlFor="email">Correo electrónico</label>
@@ -165,7 +165,7 @@ export function ResetForm() {
         });
       }}
     >
-      <h1 className="text-xl font-semibold">Nueva contraseña</h1>
+      <h1 className="title-serif text-2xl">Nueva contraseña</h1>
       {!token && <Alert tone="danger">Falta el token del enlace de recuperación.</Alert>}
       {error && <Alert tone="danger">{error}</Alert>}
       <div>

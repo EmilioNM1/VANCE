@@ -90,11 +90,11 @@ export function ChunkEditor({ chunkId, text, editedText }: { chunkId: string; te
   if (!editing)
     return (
       <div>
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink-700 dark:text-ink-200">{editedText ?? text}</p>
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-text/90">{editedText ?? text}</p>
         <div className="mt-2 flex gap-3 text-xs">
           <button className="text-accent-600 hover:underline" onClick={() => setEditing(true)}>Corregir extracción</button>
           {editedText !== null && (
-            <button className="text-ink-500 hover:underline" onClick={() => save(null)}>Restaurar original</button>
+            <button className="text-muted hover:underline" onClick={() => save(null)}>Restaurar original</button>
           )}
         </div>
       </div>
@@ -107,7 +107,7 @@ export function ChunkEditor({ chunkId, text, editedText }: { chunkId: string; te
         <Button loading={saving} onClick={() => save(value)}>Guardar</Button>
         <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
       </div>
-      <p className="mt-1 text-xs text-ink-500">Se conserva el texto original. Tras corregir, vuelve a ejecutar la verificación para que se use el texto corregido.</p>
+      <p className="mt-1 text-xs text-muted">Se conserva el texto original. Tras corregir, vuelve a ejecutar la verificación para que se use el texto corregido.</p>
     </div>
   );
 }

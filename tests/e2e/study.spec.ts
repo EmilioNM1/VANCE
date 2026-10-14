@@ -54,7 +54,7 @@ test("sesión de recuerdo activo con la biblioteca de demostración", async ({ p
 
 test("al volver se reanuda la sesión pendiente", async ({ page }) => {
   await loginDemo(page);
-  await expect(page.getByText("Sesiones sin terminar")).toBeVisible();
+  await expect(page.getByText("Continúa donde lo dejaste")).toBeVisible();
   await page.getByRole("link", { name: "Continuar" }).first().click();
   await page.waitForURL(/\/app\/study\//);
   await expect(page.getByRole("button", { name: /Comprobar|Siguiente|Volver al panel/ }).first()).toBeVisible();

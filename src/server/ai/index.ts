@@ -95,3 +95,21 @@ export async function aiStructured<T>(req: StructuredRequest<T>): Promise<Struct
 
 export * from "./errors";
 export type { AiProvider, StructuredRequest, StructuredResponse } from "./provider";
+
+/** Consumo por operación (últimos N días) para medir y optimizar el gasto de tokens. */
+export async function usageByOperation(userId: string, days = 30) {
+  const since = new Date(Date.now() - days * 86400_000);
+  return withUser(userId, (tx) =>
+    tx
+      .select({
+        operation: aiUsage.operation,
+        calls: sql<number>`count(*)::int`,
+        inputTokens: sql<number>`coalesce(sum(${aiUsage.inputTokens}),0)::int`,
+        outputTokens: sql<number>`coalesce(sum(${aiUsage.outputTokens}),0)::int`,
+      })
+      .from(aiUsage)
+      .where(and(eq(aiUsage.userId, userId), gte(aiUsage.createdAt, since)))
+      .groupBy(aiUsage.operation)
+      .orderBy(sql`sum(${aiUsage.inputTokens} + ${aiUsage.outputTokens}) desc`),
+  );
+}

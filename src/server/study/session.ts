@@ -39,6 +39,8 @@ export const startSchema = z.object({
   notebookSectionId: z.string().uuid().optional(),
   /** Qué practicar dentro de una página/sección: todo, errores previos o un origen concreto. */
   focus: z.enum(["ALL", "ERRORS", "NOTES", "BOOK", "COMBINED"]).optional(),
+  /** Practicar un tipo concreto (p. ej. reconstruir un mecanismo, completar un esquema). */
+  types: z.array(z.enum(["FREE_RECALL", "EXPLAIN", "PROCESS_ORDER", "CLOZE", "RELATION", "PREDICTION", "CASE", "RECOGNITION", "DIAGRAM"])).max(9).optional(),
   size: z.number().int().min(3).max(40).optional(),
 });
 
@@ -147,7 +149,7 @@ async function planQueue(tx: Tx, userId: string, input: z.infer<typeof startSche
   const acts = await tx
     .select({ id: activities.id, type: activities.type, conceptId: activities.conceptId })
     .from(activities)
-    .where(and(inArray(activities.conceptId, ids), eq(activities.retired, false), originFilter));
+    .where(and(inArray(activities.conceptId, ids), eq(activities.retired, false), originFilter, input.types?.length ? inArray(activities.type, input.types) : undefined));
   const actsBy = new Map<string, { id: string; type: ActivityType }[]>();
   for (const a of acts) actsBy.set(a.conceptId, [...(actsBy.get(a.conceptId) ?? []), a]);
   const recurring = await tx
@@ -272,7 +274,7 @@ export async function startSession(userId: string, raw: unknown) {
       )
       .orderBy(desc(studySessions.startedAt))
       .limit(1);
-    if (active && input.mode !== "CONCEPT") return { sessionId: active.id, resumed: true };
+    if (active && input.mode !== "CONCEPT" && !input.types?.length) return { sessionId: active.id, resumed: true };
     const plan = await planQueue(tx, userId, input, new Date());
     if (!plan.length)
       throw new ConflictError(

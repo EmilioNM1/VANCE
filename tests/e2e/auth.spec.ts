@@ -3,7 +3,7 @@ import { register } from "./helpers";
 
 test("registro, cierre de sesión e inicio de sesión", async ({ page }) => {
   const email = await register(page, "Ana Prueba");
-  await expect(page.getByRole("heading", { name: "Hola, Ana" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Ana");
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
   await page.waitForURL("**/login");
   await page.goto("/app");

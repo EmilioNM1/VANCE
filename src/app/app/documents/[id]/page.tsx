@@ -8,6 +8,8 @@ import { ActionButton, ChunkEditor, StatusPoller } from "@/components/document-c
 import { DangerButton } from "@/components/library-client";
 import { StartSessionButton } from "@/components/start-session-button";
 
+import { Page } from "@/components/page-container";
+
 export const dynamic = "force-dynamic";
 
 const STEPS = [
@@ -39,7 +41,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
   for (const c of ov.chunks) chunksBySection.set(c.sectionId, [...(chunksBySection.get(c.sectionId) ?? []), c]);
 
   return (
-    <>
+    <Page wide>
       <PageHeader
         back={{ href: `/app/library/${ov.library.id}`, label: ov.library.name }}
         title={d.title}
@@ -56,13 +58,18 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
       <Card className="mb-4">
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <Badge tone={st.tone}>{st.label}</Badge>
-          {claimsTotal > 0 && <span className="text-sm text-ink-500">{validated} de {claimsTotal} afirmaciones validadas · {ov.conceptCount} conceptos</span>}
+          {claimsTotal > 0 && <span className="text-sm text-muted">{validated} de {claimsTotal} afirmaciones validadas · {ov.conceptCount} conceptos</span>}
+          {d.indexProvider && (
+            <Badge tone={d.indexStatus === "INDEXED" ? "accent" : d.indexStatus === "FAILED" ? "danger" : "neutral"}>
+              Búsqueda semántica: {d.indexStatus === "INDEXED" ? "indexado" : d.indexStatus === "FAILED" ? "error al indexar" : "indexando…"}
+            </Badge>
+          )}
         </div>
         <ol className="grid gap-2 sm:grid-cols-4">
           {STEPS.map((s, i) => {
             const done = s.done.includes(d.status);
             return (
-              <li key={s.key} className={clsx("rounded-lg border px-3 py-2 text-sm", done ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100" : "border-ink-100 text-ink-500 dark:border-ink-800")}>
+              <li key={s.key} className={clsx("rounded-lg border px-3 py-2 text-sm", done ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100" : "border-line text-muted ")}>
                 <span className="mr-1 font-semibold">{i + 1}.</span> {s.label} {done && "✓"}
               </li>
             );
@@ -96,7 +103,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
             <div className="flex flex-wrap gap-2">
               <ButtonLink href={`/app/documents/${d.id}/concepts`} variant="secondary">Explorar conceptos</ButtonLink>
               <ButtonLink href={`/app/documents/${d.id}/verification`} variant="secondary">Informe de verificación</ButtonLink>
-              <p className="w-full text-xs text-ink-500">{d.statusDetail}</p>
+              <p className="w-full text-xs text-muted">{d.statusDetail}</p>
             </div>
           )}
         </div>
@@ -111,7 +118,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
         )}
         {!d.isDemo && ["REVIEW", "READY", "FAILED", "EXTRACTED"].includes(d.status) && ov.chunks.length > 0 && (
           <details className="mt-4 text-sm">
-            <summary className="cursor-pointer text-ink-500">Volver a procesar…</summary>
+            <summary className="cursor-pointer text-muted">Volver a procesar…</summary>
             <div className="mt-3 flex flex-wrap gap-2">
               <ActionButton url={`/api/documents/${d.id}/reprocess`} body={{ stage: "extract" }} label="Extraer de nuevo" confirmText="Se borrarán los fragmentos, la verificación, los conceptos y el historial de este documento. ¿Continuar?" />
               {ai && <ActionButton url={`/api/documents/${d.id}/reprocess`} body={{ stage: "audit" }} label="Repetir verificación" confirmText="Se rehará la verificación (usando tus correcciones de extracción) y se borrarán conceptos y actividades. ¿Continuar?" />}
@@ -124,16 +131,16 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
       {ov.sections.length > 0 && (
         <>
           <h2 className="mb-3 mt-8 text-lg font-semibold">Material procesado</h2>
-          <p className="mb-4 text-sm text-ink-500">Revisa el texto extraído. Si detectas errores de extracción, corrígelos: el original se conserva.</p>
+          <p className="mb-4 text-sm text-muted">Revisa el texto extraído. Si detectas errores de extracción, corrígelos: el original se conserva.</p>
           <div className="space-y-4">
             {ov.sections.map((s) => (
               <Card key={s.id}>
                 <h3 className="font-semibold">{s.title}</h3>
-                <p className="mb-3 text-xs text-ink-500">{s.pageStart ? `Págs. ${s.pageStart}${s.pageEnd && s.pageEnd !== s.pageStart ? `–${s.pageEnd}` : ""}` : "Sin paginación"}</p>
+                <p className="mb-3 text-xs text-muted">{s.pageStart ? `Págs. ${s.pageStart}${s.pageEnd && s.pageEnd !== s.pageStart ? `–${s.pageEnd}` : ""}` : "Sin paginación"}</p>
                 <div className="space-y-4">
                   {(chunksBySection.get(s.id) ?? []).map((c) => (
-                    <div key={c.id} className="border-l-2 border-ink-100 pl-3 dark:border-ink-800">
-                      <div className="mb-1 flex flex-wrap gap-2 text-xs text-ink-500">
+                    <div key={c.id} id={`chunk-${c.id}`} className="scroll-mt-24 target:rounded-r-md target:bg-accent-50 dark:target:bg-accent-900/30 border-l-2 border-line pl-3">
+                      <div className="mb-1 flex flex-wrap gap-2 text-xs text-muted">
                         {c.page && <span>Página {c.page}</span>}
                         {c.editedText !== null && <Badge tone="info">Corregido por ti</Badge>}
                         {c.warnings.map((w, i) => <Badge key={i} tone="warning">{w}</Badge>)}
@@ -147,9 +154,9 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
           </div>
         </>
       )}
-      <p className="mt-6 text-xs text-ink-500">
+      <p className="mt-6 text-xs text-muted">
         <Link href="/app/library" className="hover:underline">Volver a la biblioteca</Link>
       </p>
-    </>
+    </Page>
   );
 }

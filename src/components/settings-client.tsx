@@ -118,12 +118,12 @@ export function LearningSettingsForm({ settings }: { settings: UserSettings }) {
             ["easy", "Fácil (días)", iv.easy, 1, 60, 0.5],
           ].map(([k, label, v, min, max, step]) => (
             <div key={k as string}>
-              <label className="text-xs text-ink-500" htmlFor={k as string}>{label}</label>
+              <label className="text-xs text-muted" htmlFor={k as string}>{label}</label>
               <input id={k as string} name={k as string} type="number" className="input" defaultValue={v as number} min={min as number} max={max as number} step={step as number} required />
             </div>
           ))}
         </div>
-        <p className="mt-1 text-xs text-ink-500">A partir de ahí, los intervalos se adaptan a tus resultados reales.</p>
+        <p className="mt-1 text-xs text-muted">A partir de ahí, los intervalos se adaptan a tus resultados reales.</p>
       </fieldset>
       <div className="grid gap-3 sm:grid-cols-3">
         <div>

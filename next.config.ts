@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // Librerías de procesamiento documental que solo deben ejecutarse en Node.
-  serverExternalPackages: ["unpdf", "mammoth", "jszip", "pg"],
+  serverExternalPackages: ["unpdf", "mammoth", "jszip", "pg", "pdfkit"],
   experimental: {
     serverActions: { bodySizeLimit: "2mb" },
   },

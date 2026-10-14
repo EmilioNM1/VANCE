@@ -96,10 +96,10 @@ export function UploadForm({ libraryId, maxMb }: { libraryId: string; maxMb: num
           setDrag(false);
           pick(e.dataTransfer.files[0]);
         }}
-        className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-8 text-center transition ${drag ? "border-accent-500 bg-accent-50 dark:bg-accent-900/20" : "border-ink-200 dark:border-ink-700"}`}
+        className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-8 text-center transition ${drag ? "border-accent-500 bg-accent-50 dark:bg-accent-900/20" : "border-line "}`}
       >
         <p className="text-sm font-medium">{file ? file.name : "Arrastra aquí tu archivo"}</p>
-        <p className="mt-1 text-xs text-ink-500">PDF (con texto o escaneado), DOCX, PPTX, TXT, MD o imágenes de apuntes · máx. {maxMb} MB</p>
+        <p className="mt-1 text-xs text-muted">PDF (con texto o escaneado), DOCX, PPTX, TXT, MD o imágenes de apuntes · máx. {maxMb} MB</p>
         <Button type="button" variant="secondary" className="mt-3" onClick={() => input.current?.click()}>
           {file ? "Cambiar archivo" : "Elegir archivo"}
         </Button>

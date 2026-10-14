@@ -1,12 +1,11 @@
-export function Logo({ className = "" }: { className?: string }) {
+export function Logo({ className = "", mark = false }: { className?: string; mark?: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-2 font-semibold tracking-tight ${className}`}>
-      <svg viewBox="0 0 32 32" className="h-7 w-7" aria-hidden>
-        <rect width="32" height="32" rx="9" className="fill-accent-600" />
-        <path d="M8 10l8 13 8-13" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx="16" cy="9" r="2.2" fill="white" />
+    <span className={`inline-flex items-center gap-2 ${className}`}>
+      <svg viewBox="0 0 32 32" className="h-7 w-7 shrink-0" aria-hidden>
+        <rect width="32" height="32" rx="8" className="fill-accent-600 dark:fill-accent-500" />
+        <path d="M9 9.5l7 13 7-13" fill="none" stroke="white" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <span>VANCE</span>
+      {!mark && <span className="font-serif text-[1.15rem] font-semibold tracking-tight">Vance</span>}
     </span>
   );
 }

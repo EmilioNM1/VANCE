@@ -5,6 +5,8 @@ import { loadOr404 } from "@/server/page-helpers";
 import { Badge, Card, DOC_STATUS, EmptyState, PageHeader, formatDate } from "@/components/ui";
 import { DangerButton, UploadForm } from "@/components/library-client";
 
+import { Page } from "@/components/page-container";
+
 export const dynamic = "force-dynamic";
 
 export default async function LibraryDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -13,7 +15,7 @@ export default async function LibraryDetail({ params }: { params: Promise<{ id: 
   const data = await loadOr404(() => getLibrary(user.id, id));
   const { library, documents } = data;
   return (
-    <>
+    <Page wide>
       <PageHeader
         back={{ href: "/app/library", label: "Biblioteca" }}
         title={library.name}
@@ -29,10 +31,10 @@ export default async function LibraryDetail({ params }: { params: Promise<{ id: 
             <ul className="space-y-2">
               {documents.map((d) => (
                 <li key={d.id}>
-                  <Link href={`/app/documents/${d.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-ink-100 bg-white px-4 py-3 transition hover:border-accent-300 dark:border-ink-800 dark:bg-ink-900">
+                  <Link href={`/app/documents/${d.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-3 transition hover:border-accent-300">
                     <div className="min-w-0">
                       <p className="truncate font-medium">{d.title}</p>
-                      <p className="text-xs text-ink-500">
+                      <p className="text-xs text-muted">
                         {d.originalFilename} · {formatDate(d.createdAt)} {d.pageCount ? `· ${d.pageCount} págs.` : ""}
                       </p>
                     </div>
@@ -48,6 +50,6 @@ export default async function LibraryDetail({ params }: { params: Promise<{ id: 
           <UploadForm libraryId={library.id} maxMb={Number(process.env.MAX_UPLOAD_MB ?? 25)} />
         </Card>
       </div>
-    </>
+    </Page>
   );
 }

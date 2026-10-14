@@ -1,6 +1,6 @@
-# VANCE — Entrenador de memoria con IA
+# VANCE — Espacio de estudio con memoria
 
-VANCE convierte libros, PDF, apuntes y presentaciones en **entrenamiento de recuerdo activo**:
+VANCE une en una sola plataforma **libros**, **apuntes** y **memoria**: cuadernos con un editor tipo procesador de textos, libros verificados, contraste de apuntes con las fuentes y entrenamiento de **recuerdo activo**:
 
 > Subir contenido → verificar información → organizar conocimiento → entrenar la recuperación → detectar errores → corregir conceptos → repetir de manera inteligente → medir la retención a largo plazo.
 
@@ -39,8 +39,8 @@ npm run build && npm start    # y, con RUN_WORKER_IN_WEB=false, en otro proceso:
 
 ```bash
 npm run typecheck
-npm test              # 84 pruebas unitarias + de integración (usa TEST_DATABASE_URL; la vacía y migra)
-npm run build && npm run test:e2e   # 10 pruebas E2E con Playwright (escritorio y móvil)
+npm test              # pruebas unitarias + de integración (usa TEST_DATABASE_URL; la vacía y migra)
+npm run build && npm run test:e2e   # E2E con Playwright: escritorio, iPad (vertical/horizontal) y móvil
 ```
 
 ### Variables de entorno
@@ -54,6 +54,7 @@ Todas están documentadas en [`.env.example`](.env.example). Las claves nunca ll
 | `AI_DAILY_TOKEN_BUDGET_PER_USER` | Control de costes: tokens/24 h por usuario (0 = sin límite) |
 | `VERIFY_WITH_WEB_SEARCH`, `VERIFY_WITH_PUBMED`, `NCBI_API_KEY` | Fuentes de verificación |
 | `STORAGE_DIR`, `MAX_UPLOAD_MB`, `MAX_PAGES_PER_DOCUMENT` | Almacenamiento privado y límites |
+| `GEMINI_API_KEY`, `GEMINI_MODEL`, `RETRIEVAL_PROVIDER` | Recuperación semántica en libros con Gemini File Search (opcional) |
 | `SMTP_URL`, `MAIL_FROM` | Correo de recuperación de contraseña |
 | `RUN_WORKER_IN_WEB`, `WORKER_CONCURRENCY` | Trabajos en segundo plano |
 
@@ -100,6 +101,45 @@ El esquema completo está en [`src/db/schema.ts`](src/db/schema.ts) y las migrac
 
 ---
 
+## Cuadernos y apuntes conectados
+
+**Jerarquía:** cuaderno → sección → página (crear, renombrar, mover entre secciones y cuadernos, ordenar, duplicar y eliminar). Cada página conserva su identidad (id estable) aunque se mueva, así que sus conceptos, fuentes y actividades siguen enlazados.
+
+**Editor** (Tiptap/ProseMirror): títulos, negrita, cursiva, subrayado, tachado, resaltado, listas numeradas, con viñetas y de tareas, tablas (añadir/eliminar filas y columnas, combinar celdas), imágenes (pegar, arrastrar o elegir; almacenamiento privado), enlaces, citas, separadores, fórmulas LaTeX con vista previa (KaTeX), deshacer/rehacer, atajos (⌘/Ctrl+B, I, U, K, F, Alt+1…), buscar y reemplazar, vista de hoja o continua, copiar y pegar con formato. Exportación real a **DOCX, PDF (fuentes Unicode incrustadas), Markdown y TXT**.
+
+**Guardado en la nube:** automático (1,2 s tras dejar de escribir), independiente de la IA. «Guardado» solo aparece tras la confirmación del servidor. Copia local de seguridad mientras hay cambios sin confirmar, reintentos con espera creciente, guardado al cambiar de pestaña, control de versiones optimista entre dispositivos (si dos dispositivos editan a la vez se pregunta qué versión conservar), historial de versiones restaurable (instantáneas periódicas y antes de aplicar correcciones) y actualización automática al volver a una pestaña si otro dispositivo guardó.
+
+**Adaptable:** escritorio con barra lateral y explorador del cuaderno; en el editor la navegación se reduce a un carril para dar espacio. iPad: carril de iconos y el panel del libro **junto** al editor para consultar mientras se escribe. Móvil: barra inferior de navegación (se oculta al escribir) y barra de formato inferior que se mantiene sobre el teclado. Modo claro/oscuro con selector propio. La interacción usa eventos de puntero estándar, base preparada para lápiz (Apple Pencil) en el futuro; no hay todavía escritura a mano.
+
+### Libros + apuntes + memoria (los tres se relacionan, pero no se confunden)
+
+| Tipo | Qué es | Cómo se guarda |
+|---|---|---|
+| Libro | Fuente documental | `documents`/`chunks` (página exacta); afirmaciones `source_kind = DOCUMENT` |
+| Apunte | Lo que el estudiante escribió | `notebook_pages`; afirmaciones `source_kind = NOTE` con su cita literal |
+| Historial | Lo que recuerda o falla | `concept_mastery`, `review_logs`, `concept_errors` (común a ambos) |
+
+Desde una página: **Libro** (vincular libros, buscar en ellos sin salir del editor, insertar citas con su página), **Revisión** (analizar la página o «Contrastar con el libro» sobre una selección: conceptos → fragmentos del libro → comparación → errores, imprecisiones y omisiones con propuesta y referencia; aceptar, mantener o descartar sin perder el texto original; verificación externa opcional con PubMed/búsqueda web) y **Estudiar** (crear preguntas desde los apuntes, el libro o ambos; practicar la página, la sección, solo errores previos o una habilidad: reconstruir un mecanismo, explicar, completar el esquema, relacionar, resolver un caso). Las actividades guardan su origen (página o fragmento del libro) para volver a él al fallar, y sus repasos aparecen en la agenda general.
+
+**Reutilización del motor existente:** no hay tablas paralelas. Afirmaciones, conceptos, relaciones y actividades se generalizaron (`document_id` o `page_id`), y se reutilizan la validación de fuentes, el constructor de conocimiento, el generador de actividades y sus rúbricas, la evaluación, los errores, el perfil de dominio y la repetición espaciada. El modo «El libro» reutiliza los conceptos y actividades ya validados del libro (sin coste de IA).
+
+### Recuperación documental: Gemini File Search + búsqueda local
+
+- **Gemini File Search** (`@google/genai`, `generateContent` con la herramienta `fileSearch`): cada usuario tiene su propio almacén, cada libro se sube una vez con el metadato `document_id` y las consultas filtran por los libros vinculados. Se leen los fragmentos recuperados (`groundingChunks[].retrievedContext`: texto, título, página) y se enlazan con el fragmento local equivalente para mostrar la página exacta. **No se envía el libro completo en cada consulta.**
+- **Alternativa compatible** (siempre disponible, y respaldo si Gemini falla o no está configurado): búsqueda de texto completo de PostgreSQL (`tsvector` en español) sobre los fragmentos, sin coste y con página exacta.
+- **Decisión técnica:** File Search se usa para *recuperar*; el contraste, la generación de preguntas y la evaluación siguen en el motor de IA existente, con salidas estructuradas y validación en servidor (las referencias P# solo son válidas si corresponden a un pasaje realmente recuperado). Así hay una única forma de evaluar y de validar fuentes. Nunca se muestra una página que no venga de la recuperación.
+
+### Consumo de tokens
+
+- El guardado nunca llama a la IA. El análisis y la creación de preguntas solo se ejecutan bajo demanda, en segundo plano.
+- Un análisis de página no se repite si el contenido no ha cambiado (hash del contenido); se avisa discretamente («Contenido nuevo sin revisar») sin interrumpir.
+- Caché de resultados deterministas por contenido (`ai_cache`: extracción de afirmaciones, comparación, construcción de conocimiento, generación de actividades).
+- Se reutilizan las actividades existentes: solo se generan los tipos que faltan; las del libro se enlazan sin IA.
+- No se generan preguntas por frase: se agrupan conceptos educativos y se descartan duplicados.
+- Presupuesto diario por usuario y medición por operación (incluidos aciertos de caché) en **Ajustes → Consumo de IA**.
+
+---
+
 ## Cómo funciona el aprendizaje
 
 **Verificación (antes de generar nada).** Afirmaciones atómicas con cita literal (se comprueba que existe en el fragmento) → contraste con PubMed (biomédico) y búsqueda web → veredicto (respaldada, error confirmado, posible error, desactualizada, discrepancia entre fuentes, no verificable, error de extracción, contradicción interna) → informe en tres categorías: **verificada / requiere revisión / corrección propuesta**. El usuario acepta, edita o excluye; el original se conserva y cada cambio queda registrado. Solo lo validado alimenta el conocimiento.
@@ -135,7 +175,17 @@ Las estadísticas muestran **rendimiento observado**; la app no afirma medir la 
 | Repetición espaciada, calibración personal, sesiones diaria/documento/concepto/acumulativa, reanudación | ✅ Terminado | |
 | Perfil de dominio, falsa sensación de aprendizaje, errores recurrentes, confusiones | ✅ Terminado | Confusiones detectadas por IA y por reconocimiento |
 | Panel, agenda de repasos, estadísticas (inmediato vs. demorado, evolución, errores, historial, tiempo, objetivos) | ✅ Terminado | Sin datos ficticios: con 0 actividades se muestra vacío |
-| Reconstrucción de diagramas, mapas conceptuales visuales (Fase 2) | ⬜ Pendiente | |
+| Cuadernos, secciones y páginas (crear, mover, ordenar, duplicar, eliminar) | ✅ Terminado | |
+| Editor enriquecido, buscar y reemplazar, fórmulas, tablas, imágenes | ✅ Terminado | Fórmulas exportadas como LaTeX en DOCX/PDF |
+| Guardado en la nube, copia local, conflictos entre dispositivos, versiones | ✅ Terminado | |
+| Exportación DOCX, PDF, Markdown, TXT | ✅ Terminado | WebP no se incrusta en DOCX/PDF (se indica) |
+| Consultar el libro desde el editor e insertar citas | ✅ Terminado | Búsqueda local sin IA; semántica con `GEMINI_API_KEY` |
+| Gemini File Search (indexación y consulta) | 🟡 Requiere `GEMINI_API_KEY` | Implementado con el SDK oficial; **no ejecutado contra la API real en este entorno** |
+| Contraste de apuntes con libros y correcciones | 🟡 Requiere IA | Lógica de validación probada con IA simulada y búsqueda local real |
+| Preguntas desde apuntes / libro / combinadas, sesiones por página y sección | ✅ Libro sin IA · 🟡 apuntes requieren IA | |
+| «Completa el esquema» (arrastrar etiquetas a un esquema de proceso o estructura) | ✅ Terminado | Esquema generado desde los pasos validados; no se usan imágenes del libro |
+| Escritura a mano con Apple Pencil | ⬜ Pendiente | La entrada por puntero ya funciona; falta un lienzo de dibujo |
+| Mapas conceptuales visuales | ⬜ Pendiente | |
 | Predicción de necesidades de repaso más allá del modelo actual, ajuste de dificultad fino (Fase 3) | ⬜ Pendiente | La base (calibración, dimensiones, confusiones) ya existe |
 
 **Datos de demostración:** `npm run db:seed-demo` crea una biblioteca marcada como **DEMO** (capítulo breve de fisiología muscular). Sus afirmaciones figuran como «aprobadas, sin verificación externa» y sus actividades como `generated_by = DEMO`; no simulan un procesamiento de IA.

@@ -9,6 +9,8 @@ import { Alert, Badge, Card, MASTERY_LABEL, PageHeader, Progress, formatDate, re
 import { StartSessionButton } from "@/components/start-session-button";
 import { KIND_LABEL } from "@/lib/labels";
 
+import { Page } from "@/components/page-container";
+
 export const dynamic = "force-dynamic";
 
 export default async function ConceptPage({ params }: { params: Promise<{ id: string }> }) {
@@ -16,15 +18,16 @@ export default async function ConceptPage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const detail = await loadOr404(() => getConceptDetail(user.id, id));
   const progress = await getConceptProgress(user.id, id);
-  const { concept: c, document: doc } = detail;
+  const { concept: c, document: doc, notePage } = detail;
+  const back = doc ? { href: `/app/documents/${doc.id}/concepts`, label: doc.title } : notePage ? { href: `/app/notebooks/page/${notePage.id}`, label: `Apuntes · ${notePage.title}` } : { href: "/app/reviews", label: "Repasos" };
   const m = progress.mastery;
   const st = MASTERY_LABEL[m?.state ?? "NEW"]!;
   const dims = m?.dimensions as MasteryDimensions | undefined;
 
   return (
-    <>
+    <Page wide>
       <PageHeader
-        back={{ href: `/app/documents/${doc.id}/concepts`, label: doc.title }}
+        back={back}
         title={c.name}
         subtitle={<span className="flex flex-wrap gap-2"><Badge>{KIND_LABEL[c.kind]}</Badge><Badge tone={st.tone}>{st.label}</Badge></span>}
         actions={<StartSessionButton mode="CONCEPT" conceptId={c.id}>Practicar este concepto</StartSessionButton>}
@@ -32,7 +35,7 @@ export default async function ConceptPage({ params }: { params: Promise<{ id: st
       <Alert tone="info">Consejo: intenta explicar este concepto de memoria antes de leer el resumen. Leer no es lo mismo que recordar.</Alert>
       <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_340px]">
         <div className="space-y-4">
-          <details className="rounded-2xl border border-ink-100 bg-white p-5 shadow-card dark:border-ink-800 dark:bg-ink-900">
+          <details className="rounded-xl border border-line bg-surface p-5">
             <summary className="cursor-pointer font-semibold">Ver resumen y estructura</summary>
             <p className="mt-3 text-sm leading-relaxed">{c.summary}</p>
             {c.details.steps && (
@@ -43,7 +46,7 @@ export default async function ConceptPage({ params }: { params: Promise<{ id: st
             {c.details.formula && (
               <div className="mt-3 text-sm">
                 <p className="font-mono">{c.details.formula.expression}</p>
-                <ul className="mt-1 text-xs text-ink-500">{c.details.formula.variables.map((v) => <li key={v.symbol}>{v.symbol}: {v.meaning}</li>)}</ul>
+                <ul className="mt-1 text-xs text-muted">{c.details.formula.variables.map((v) => <li key={v.symbol}>{v.symbol}: {v.meaning}</li>)}</ul>
               </div>
             )}
             {(["examples", "exceptions", "applications"] as const).map((k) =>
@@ -61,9 +64,9 @@ export default async function ConceptPage({ params }: { params: Promise<{ id: st
               {detail.claims.map((cl) => (
                 <li key={cl.id} className="border-l-2 border-accent-200 pl-3">
                   <p>{cl.text}</p>
-                  <p className="text-xs text-ink-500">
+                  <p className="text-xs text-muted">
                     {cl.page ? `Página ${cl.page} · ` : ""}
-                    {cl.basis === "EXTERNAL_SOURCE" ? "verificada con fuentes" : cl.basis === "USER_EDITED" ? "editada por ti" : "aprobada por ti (sin verificación externa)"}
+                    {cl.sourceKind === "NOTE" ? "de tus apuntes · " : ""}{cl.basis === "BOOK_SOURCE" ? "respaldada por tu libro" : cl.basis === "EXTERNAL_SOURCE" ? "verificada con fuentes" : cl.basis === "USER_EDITED" ? "editada por ti" : "aprobada por ti (sin verificación externa)"}
                     {cl.text !== cl.original && " · corregida respecto al original"}
                   </p>
                 </li>
@@ -77,7 +80,7 @@ export default async function ConceptPage({ params }: { params: Promise<{ id: st
                 {[...detail.relationsOut, ...detail.relationsIn].map((r) => (
                   <li key={r.id}>
                     <Link href={`/app/concepts/${r.otherId}`} className="font-medium text-accent-600 hover:underline">{r.otherName}</Link>
-                    <span className="text-ink-500"> — {r.description}</span>
+                    <span className="text-muted"> — {r.description}</span>
                   </li>
                 ))}
               </ul>
@@ -93,9 +96,9 @@ export default async function ConceptPage({ params }: { params: Promise<{ id: st
         <div className="space-y-4">
           <Card>
             <h2 className="font-semibold">Perfil de dominio</h2>
-            <p className="mb-3 text-xs text-ink-500">Rendimiento observado en actividades; no es una medida directa de tu memoria.</p>
+            <p className="mb-3 text-xs text-muted">Rendimiento observado en actividades; no es una medida directa de tu memoria.</p>
             {!m ? (
-              <p className="text-sm text-ink-500">Aún no has practicado este concepto.</p>
+              <p className="text-sm text-muted">Aún no has practicado este concepto.</p>
             ) : (
               <>
                 {m.illusionFlag && <div className="mb-3"><Alert tone="warning">Lo reconoces entre opciones, pero aún no lo recuperas sin ayuda.</Alert></div>}
@@ -106,7 +109,7 @@ export default async function ConceptPage({ params }: { params: Promise<{ id: st
                       <li key={k}>
                         <div className="mb-0.5 flex justify-between text-xs">
                           <span>{DIMENSION_LABELS[k]}</span>
-                          <span className="tabular-nums text-ink-500">{d?.value === null || d === undefined ? "sin datos" : `${Math.round(d.value * 100)}% · ${d.n}`}</span>
+                          <span className="tabular-nums text-muted">{d?.value === null || d === undefined ? "sin datos" : `${Math.round(d.value * 100)}% · ${d.n}`}</span>
                         </div>
                         <Progress value={(d?.value ?? 0) * 100} label={DIMENSION_LABELS[k]} />
                       </li>
@@ -114,13 +117,13 @@ export default async function ConceptPage({ params }: { params: Promise<{ id: st
                   })}
                 </ul>
                 <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
-                  <dt className="text-ink-500">Próximo repaso</dt>
+                  <dt className="text-muted">Próximo repaso</dt>
                   <dd>{relativeDue(m.dueAt)}</dd>
-                  <dt className="text-ink-500">Estabilidad estimada</dt>
+                  <dt className="text-muted">Estabilidad estimada</dt>
                   <dd>{m.stability < 1 ? `${Math.round(m.stability * 24)} h` : `${m.stability.toFixed(1)} días`}</dd>
-                  <dt className="text-ink-500">Repasos / olvidos</dt>
+                  <dt className="text-muted">Repasos / olvidos</dt>
                   <dd>{m.reps} / {m.lapses}</dd>
-                  <dt className="text-ink-500">Días con recuerdo independiente</dt>
+                  <dt className="text-muted">Días con recuerdo independiente</dt>
                   <dd>{m.independentSuccessDays.length}</dd>
                 </dl>
               </>
@@ -133,7 +136,7 @@ export default async function ConceptPage({ params }: { params: Promise<{ id: st
                 {progress.errors.map((e) => (
                   <li key={e.id}>
                     <p>{e.description}</p>
-                    <p className="text-xs text-ink-500">{e.count} vez/veces · {e.resolved ? "corregido" : "pendiente de corregir"} · {formatDate(e.lastSeenAt)}</p>
+                    <p className="text-xs text-muted">{e.count} vez/veces · {e.resolved ? "corregido" : "pendiente de corregir"} · {formatDate(e.lastSeenAt)}</p>
                   </li>
                 ))}
               </ul>
@@ -154,6 +157,6 @@ export default async function ConceptPage({ params }: { params: Promise<{ id: st
           )}
         </div>
       </div>
-    </>
+    </Page>
   );
 }

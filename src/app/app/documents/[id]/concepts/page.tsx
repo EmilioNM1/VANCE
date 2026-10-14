@@ -10,6 +10,8 @@ import { Badge, Card, EmptyState, MASTERY_LABEL, PageHeader } from "@/components
 import { StartSessionButton } from "@/components/start-session-button";
 import { KIND_LABEL } from "@/lib/labels";
 
+import { Page } from "@/components/page-container";
+
 export const metadata = { title: "Conceptos" };
 export const dynamic = "force-dynamic";
 
@@ -44,7 +46,7 @@ export default async function ConceptsPage({ params }: { params: Promise<{ id: s
   const sectionTitle = new Map(extra.secs.map((s) => [s.id, s.title]));
 
   return (
-    <>
+    <Page wide>
       <PageHeader
         back={{ href: `/app/documents/${id}`, label: doc.title }}
         title="Explorador de conceptos"
@@ -58,13 +60,13 @@ export default async function ConceptsPage({ params }: { params: Promise<{ id: s
           <div className="space-y-6">
             {[...bySection.entries()].map(([sid, list]) => (
               <section key={sid}>
-                <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-500">{sectionTitle.get(sid) ?? "General"}</h2>
+                <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">{sectionTitle.get(sid) ?? "General"}</h2>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {list.map((c) => {
                     const m = mById.get(c.id);
                     const st = MASTERY_LABEL[m?.state ?? "NEW"]!;
                     return (
-                      <Link key={c.id} href={`/app/concepts/${c.id}`} className="rounded-xl border border-ink-100 bg-white p-4 transition hover:border-accent-300 dark:border-ink-800 dark:bg-ink-900">
+                      <Link key={c.id} href={`/app/concepts/${c.id}`} className="rounded-xl border border-line bg-surface p-4 transition hover:border-accent-300">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-medium">{c.name}</p>
                           {c.importance >= 3 && <Badge tone="accent">central</Badge>}
@@ -74,8 +76,8 @@ export default async function ConceptsPage({ params }: { params: Promise<{ id: s
                           <Badge tone={st.tone}>{st.label}</Badge>
                           {m?.illusionFlag && <Badge tone="warning">reconoce sin recordar</Badge>}
                         </div>
-                        <p className="mt-2 line-clamp-3 text-sm text-ink-600 dark:text-ink-300">{c.summary}</p>
-                        {c.details.steps && <p className="mt-1 text-xs text-ink-500">{c.details.steps.length} pasos</p>}
+                        <p className="mt-2 line-clamp-3 text-sm text-muted">{c.summary}</p>
+                        {c.details.steps && <p className="mt-1 text-xs text-muted">{c.details.steps.length} pasos</p>}
                       </Link>
                     );
                   })}
@@ -86,15 +88,15 @@ export default async function ConceptsPage({ params }: { params: Promise<{ id: s
           <Card className="h-fit">
             <h2 className="mb-3 font-semibold">Relaciones</h2>
             {relations.length === 0 ? (
-              <p className="text-sm text-ink-500">No se identificaron relaciones respaldadas.</p>
+              <p className="text-sm text-muted">No se identificaron relaciones respaldadas.</p>
             ) : (
               <ul className="space-y-2 text-sm">
                 {relations.map((r) => (
-                  <li key={r.id} className="rounded-lg bg-ink-50 px-3 py-2 dark:bg-ink-800/60">
+                  <li key={r.id} className="rounded-lg bg-sunken px-3 py-2">
                     <Link className="font-medium hover:underline" href={`/app/concepts/${r.fromConceptId}`}>{name.get(r.fromConceptId)}</Link>{" "}
-                    <span className="text-ink-500">{REL_LABEL[r.type]}</span>{" "}
+                    <span className="text-muted">{REL_LABEL[r.type]}</span>{" "}
                     <Link className="font-medium hover:underline" href={`/app/concepts/${r.toConceptId}`}>{name.get(r.toConceptId)}</Link>
-                    <p className="mt-0.5 text-xs text-ink-500">{r.description}</p>
+                    <p className="mt-0.5 text-xs text-muted">{r.description}</p>
                   </li>
                 ))}
               </ul>
@@ -102,6 +104,6 @@ export default async function ConceptsPage({ params }: { params: Promise<{ id: s
           </Card>
         </div>
       )}
-    </>
+    </Page>
   );
 }

@@ -8,7 +8,7 @@ test("subir un texto: se extrae y, sin IA, la verificación queda pendiente (sin
   await upload(page, { name: "glucolisis.md", mimeType: "text/markdown", buffer: Buffer.from("# Glucólisis\n\nLa glucólisis convierte una molécula de glucosa en dos de piruvato.\n\n## Balance\nSe obtienen dos ATP netos por glucosa.") });
   await expect(page.getByText("Texto extraído").first()).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/requiere IA/)).toBeVisible();
-  await expect(page.getByText("Página", { exact: false }).first()).toBeHidden(); // markdown sin paginación
+  await expect(page.getByText(/^Página \d+$/)).toHaveCount(0); // markdown sin paginación
   await expect(page.getByText("La glucólisis convierte una molécula")).toBeVisible();
   // Corregir un error de extracción conservando el original
   await page.getByRole("button", { name: "Corregir extracción" }).first().click();

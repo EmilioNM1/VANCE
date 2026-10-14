@@ -4,36 +4,187 @@
 
 @layer base {
   :root {
-    color-scheme: light dark;
+    --paper: 250 248 244;
+    --surface: 255 255 255;
+    --sunken: 244 241 235;
+    --line: 231 226 217;
+    --text: 28 27 25;
+    --muted: 107 103 95;
+    color-scheme: light;
+  }
+  .dark {
+    --paper: 22 21 19;
+    --surface: 29 28 26;
+    --sunken: 35 34 31;
+    --line: 50 48 44;
+    --text: 236 233 227;
+    --muted: 158 152 142;
+    color-scheme: dark;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
   }
   body {
-    @apply bg-ink-50 text-ink-900 antialiased dark:bg-ink-950 dark:text-ink-100;
+    @apply bg-paper font-sans text-text antialiased;
+    font-feature-settings: "cv11", "ss01";
   }
   ::selection {
     @apply bg-accent-200 text-ink-900;
   }
   :focus-visible {
-    @apply outline-none ring-2 ring-accent-500 ring-offset-2 ring-offset-ink-50 dark:ring-offset-ink-950;
+    @apply outline-none ring-2 ring-accent-500/70 ring-offset-2 ring-offset-paper;
+  }
+  /* El área de escritura no muestra anillo de foco: el cursor ya indica dónde se escribe */
+  .ProseMirror:focus-visible,
+  textarea#page-title:focus-visible {
+    @apply ring-0 ring-offset-0;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
   }
 }
 
 @layer components {
   .input {
-    @apply w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400
-      focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/30
-      disabled:opacity-60 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-100;
+    @apply w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-text placeholder:text-muted/70
+      transition-colors focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20 disabled:opacity-60;
   }
   .label {
-    @apply mb-1 block text-sm font-medium text-ink-700 dark:text-ink-200;
+    @apply mb-1 block text-sm font-medium text-text/90;
   }
-  .prose-study p {
-    @apply mb-3 leading-relaxed;
+  .title-serif {
+    @apply font-serif font-semibold tracking-tight;
+  }
+  .kbd {
+    @apply rounded border border-line bg-sunken px-1.5 py-0.5 font-mono text-[11px] text-muted;
   }
 }
 
+/* ───────────── Editor de apuntes (Tiptap/ProseMirror) ───────────── */
+.note-editor .ProseMirror {
+  @apply font-serif text-[1.075rem] leading-[1.75] text-text outline-none;
+  min-height: 60vh;
+  caret-color: rgb(31 110 104);
+  -webkit-user-select: text;
+  user-select: text;
+}
+.note-editor .ProseMirror > * + * {
+  margin-top: 0.7em;
+}
+.note-editor .ProseMirror h1 {
+  @apply mt-8 font-serif text-[1.9rem] font-semibold leading-tight tracking-tight;
+}
+.note-editor .ProseMirror h2 {
+  @apply mt-7 font-serif text-[1.45rem] font-semibold leading-snug;
+}
+.note-editor .ProseMirror h3 {
+  @apply mt-6 font-sans text-[1.1rem] font-semibold;
+}
+.note-editor .ProseMirror h4 {
+  @apply mt-5 font-sans text-base font-semibold uppercase tracking-wide text-muted;
+}
+.note-editor .ProseMirror ul {
+  @apply list-disc pl-6;
+}
+.note-editor .ProseMirror ol {
+  @apply list-decimal pl-6;
+}
+.note-editor .ProseMirror li > p {
+  margin: 0.15em 0;
+}
+.note-editor .ProseMirror ul[data-type="taskList"] {
+  @apply list-none pl-1;
+}
+.note-editor .ProseMirror ul[data-type="taskList"] li {
+  @apply flex items-start gap-2;
+}
+.note-editor .ProseMirror ul[data-type="taskList"] li > label {
+  @apply mt-[0.35em] select-none;
+}
+.note-editor .ProseMirror ul[data-type="taskList"] li > label input {
+  @apply h-4 w-4 accent-accent-600;
+}
+.note-editor .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div {
+  @apply text-muted line-through;
+}
+.note-editor .ProseMirror blockquote {
+  @apply border-l-[3px] border-accent-300 pl-4 italic text-text/80 dark:border-accent-700;
+}
+.note-editor .ProseMirror hr {
+  @apply my-8 border-line;
+}
+.note-editor .ProseMirror a {
+  @apply text-accent-700 underline decoration-accent-300 underline-offset-2 dark:text-accent-300;
+}
+.note-editor .ProseMirror code {
+  @apply rounded bg-sunken px-1 py-0.5 font-mono text-[0.85em];
+}
+.note-editor .ProseMirror pre {
+  @apply overflow-x-auto rounded-lg bg-sunken p-4 font-mono text-sm;
+}
+.note-editor .ProseMirror mark {
+  @apply rounded-sm bg-amber-200/70 px-0.5 text-inherit dark:bg-amber-500/30;
+}
+.note-editor .ProseMirror img {
+  @apply my-2 max-w-full rounded-lg border border-line;
+}
+.note-editor .ProseMirror img.ProseMirror-selectednode {
+  @apply ring-2 ring-accent-500;
+}
+.note-editor .ProseMirror table {
+  @apply my-4 w-full border-collapse font-sans text-[0.95rem];
+  table-layout: fixed;
+}
+.note-editor .ProseMirror th,
+.note-editor .ProseMirror td {
+  @apply relative border border-line px-3 py-2 align-top;
+}
+.note-editor .ProseMirror th {
+  @apply bg-sunken text-left font-semibold;
+}
+.note-editor .ProseMirror .selectedCell::after {
+  content: "";
+  @apply pointer-events-none absolute inset-0 bg-accent-500/10;
+}
+.note-editor .ProseMirror .column-resize-handle {
+  @apply absolute -right-0.5 bottom-0 top-0 w-1 bg-accent-400;
+}
+.note-editor .ProseMirror .tableWrapper {
+  @apply overflow-x-auto;
+}
+.note-editor .ProseMirror p.is-editor-empty:first-child::before,
+.note-editor .ProseMirror .is-empty::before {
+  content: attr(data-placeholder);
+  @apply pointer-events-none float-left h-0 text-muted/60;
+}
+.note-editor .ProseMirror [data-type="block-math"] {
+  @apply my-4 cursor-pointer overflow-x-auto rounded-lg py-2 text-center hover:bg-sunken;
+}
+.note-editor .ProseMirror [data-type="inline-math"] {
+  @apply cursor-pointer rounded px-0.5 hover:bg-sunken;
+}
+.note-editor .search-hit {
+  @apply rounded-sm bg-amber-200/80 dark:bg-amber-400/30;
+}
+.note-editor .search-hit-current {
+  @apply rounded-sm bg-amber-400 dark:bg-amber-500/70;
+}
+.note-editor .ProseMirror .note-quote-highlight {
+  @apply rounded-sm bg-accent-200/60 dark:bg-accent-700/50;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.001ms !important;
     transition-duration: 0.001ms !important;
+  }
+}
+@media print {
+  .no-print {
+    display: none !important;
   }
 }

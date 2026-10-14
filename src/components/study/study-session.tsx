@@ -6,7 +6,7 @@ import { api, ApiError } from "@/lib/api";
 import { ACTIVITY_LABELS, type EvaluationResult } from "@/lib/types";
 import type { ItemView, SessionView } from "@/server/study/session";
 import { Alert, Badge, Button, ButtonLink, Card, Progress, Spinner, clsx, relativeDue } from "../ui";
-import { Cloze, ConfidencePicker, OpenAnswer, ProcessOrder, Recognition } from "./activity-inputs";
+import { Cloze, ConfidencePicker, DiagramBoard, OpenAnswer, ProcessOrder, Recognition } from "./activity-inputs";
 
 type Eval = EvaluationResult & { provisional: boolean; method: string };
 interface SubmitResult {
@@ -39,7 +39,7 @@ export function StudySession({ sessionId }: { sessionId: string }) {
   if (error) return <Alert tone="danger">{error}</Alert>;
   if (!view)
     return (
-      <div className="flex items-center gap-2 text-ink-500">
+      <div className="flex items-center gap-2 text-muted">
         <Spinner /> Cargando sesión…
       </div>
     );
@@ -49,9 +49,9 @@ export function StudySession({ sessionId }: { sessionId: string }) {
   return (
     <div className="mx-auto max-w-3xl">
       <div className="mb-6 flex items-center gap-3">
-        <Link href="/app" className="text-sm text-ink-500 hover:text-ink-800">✕ Salir</Link>
+        <Link href="/app" className="text-sm text-muted hover:text-ink-800">✕ Salir</Link>
         <Progress value={progress} className="flex-1" label="Progreso de la sesión" />
-        <span className="text-sm tabular-nums text-ink-500">{view.done}/{view.total}</span>
+        <span className="text-sm tabular-nums text-muted">{view.done}/{view.total}</span>
       </div>
       {done ? (
         <ResultPanel
@@ -80,6 +80,7 @@ function ItemRunner({ item, reload, onDone }: { item: ItemView; reload: () => Pr
   const [justification, setJustification] = useState("");
   const [blanks, setBlanks] = useState<Record<string, string>>({});
   const [option, setOption] = useState("");
+  const [slots, setSlots] = useState<Record<string, string>>({});
   const [confidence, setConfidence] = useState<number | null>(null);
   const [voice, setVoice] = useState(false);
   const [busy, setBusy] = useState<null | "submit" | "hint" | "skip">(null);
@@ -107,9 +108,19 @@ function ItemRunner({ item, reload, onDone }: { item: ItemView; reload: () => Pr
     }
   }, [storageKey, text, order, blanks]);
 
-  const isOpen = !["PROCESS_ORDER", "CLOZE", "RECOGNITION"].includes(a.type);
-  const response = a.type === "PROCESS_ORDER" ? { order, justification: justification || undefined } : a.type === "CLOZE" ? { blanks } : a.type === "RECOGNITION" ? { optionId: option } : { text };
-  const canSubmit = a.type === "RECOGNITION" ? !!option : a.type === "CLOZE" ? Object.values(blanks).some((v) => v.trim()) : a.type === "PROCESS_ORDER" ? true : text.trim().length > 0;
+  const isOpen = !["PROCESS_ORDER", "CLOZE", "RECOGNITION", "DIAGRAM"].includes(a.type);
+  const response =
+    a.type === "PROCESS_ORDER"
+      ? { order, justification: justification || undefined }
+      : a.type === "CLOZE"
+        ? { blanks }
+        : a.type === "RECOGNITION"
+          ? { optionId: option }
+          : a.type === "DIAGRAM"
+            ? { slots }
+            : { text };
+  const canSubmit =
+    a.type === "RECOGNITION" ? !!option : a.type === "CLOZE" ? Object.values(blanks).some((v) => v.trim()) : a.type === "PROCESS_ORDER" ? true : a.type === "DIAGRAM" ? Object.keys(slots).length > 0 : text.trim().length > 0;
 
   const submit = async () => {
     setBusy("submit");
@@ -163,13 +174,14 @@ function ItemRunner({ item, reload, onDone }: { item: ItemView; reload: () => Pr
         <Badge tone="accent">{ACTIVITY_LABELS[a.type]}</Badge>
         <Badge>{item.reason}</Badge>
         {item.noHints && <Badge tone="warning">Sin pistas</Badge>}
-        {a.conceptName && <span className="text-xs text-ink-500">{a.conceptName} · {a.documentTitle}</span>}
+        {a.origin !== "BOOK" && <Badge tone="accent">{a.origin === "COMBINED" ? "Apuntes + libro" : "De tus apuntes"}</Badge>}
+        {a.conceptName && <span className="text-xs text-muted">{a.conceptName} · {a.documentTitle}</span>}
       </div>
 
       <Card>
         <h1 className="whitespace-pre-line text-lg font-semibold leading-snug">{a.prompt}</h1>
-        {a.payload.scenario && <p className="mt-3 rounded-xl bg-ink-50 p-4 text-sm leading-relaxed dark:bg-ink-800/60">{a.payload.scenario}</p>}
-        {a.payload.instructions && <p className="mt-2 text-xs text-ink-500">{a.payload.instructions}</p>}
+        {a.payload.scenario && <p className="mt-3 rounded-xl bg-sunken p-4 text-sm leading-relaxed">{a.payload.scenario}</p>}
+        {a.payload.instructions && <p className="mt-2 text-xs text-muted">{a.payload.instructions}</p>}
       </Card>
 
       {postExplanation && (
@@ -215,6 +227,9 @@ function ItemRunner({ item, reload, onDone }: { item: ItemView; reload: () => Pr
           )}
           {a.type === "CLOZE" && <Cloze segments={a.payload.segments ?? []} values={blanks} onChange={setBlanks} disabled={!!busy} />}
           {a.type === "RECOGNITION" && <Recognition options={a.payload.options ?? []} value={option} onChange={setOption} disabled={!!busy} />}
+          {a.type === "DIAGRAM" && a.payload.diagram && (
+            <DiagramBoard diagram={a.payload.diagram} value={slots} onChange={setSlots} disabled={!!busy} wrongNodes={ev?.details && !postExplanation ? ((ev.details.wrongNodes as string[]) ?? []) : undefined} />
+          )}
 
           {item.attemptsCount === 0 && !postExplanation && (
             <div className="mt-4">
@@ -273,14 +288,14 @@ function ResultPanel({ item, result, onNext }: { item: ItemView; result: SubmitR
         {ev.ambiguityNote && <p className="mt-1 italic">{ev.ambiguityNote}</p>}
       </Alert>
       <Card>
-        <p className="text-sm text-ink-500">{ACTIVITY_LABELS[item.activity.type]} · {item.activity.conceptName ?? "concepto"}</p>
+        <p className="text-sm text-muted">{ACTIVITY_LABELS[item.activity.type]} · {item.activity.conceptName ?? "concepto"}</p>
         <h2 className="mt-1 whitespace-pre-line font-semibold">{item.activity.prompt}</h2>
         {ev.elements.length > 0 && (
           <ul className="mt-3 grid gap-1 text-sm sm:grid-cols-2">
             {ev.elements.map((e) => (
               <li key={e.id} className={clsx("rounded-lg px-3 py-1.5", e.status === "PRESENT" ? "bg-emerald-50 dark:bg-emerald-950/30" : e.status === "PARTIAL" ? "bg-amber-50 dark:bg-amber-950/30" : "bg-rose-50 dark:bg-rose-950/30")}>
                 {e.status === "PRESENT" ? "✓" : e.status === "PARTIAL" ? "◐" : "✗"} {e.label}
-                {e.note && <span className="block text-xs text-ink-500">{e.note}</span>}
+                {e.note && <span className="block text-xs text-muted">{e.note}</span>}
               </li>
             ))}
           </ul>
@@ -290,31 +305,43 @@ function ResultPanel({ item, result, onNext }: { item: ItemView; result: SubmitR
             <p className="font-medium">A corregir</p>
             <ul className="mt-1 space-y-1">
               {ev.incorrect.map((c, i) => (
-                <li key={i}>✗ {c.description}{c.explanation && <span className="block text-xs text-ink-500">{c.explanation}</span>}</li>
+                <li key={i}>✗ {c.description}{c.explanation && <span className="block text-xs text-muted">{c.explanation}</span>}</li>
               ))}
             </ul>
           </div>
         )}
         {ev.explanation && (
-          <div className="mt-4 rounded-xl bg-ink-50 p-4 text-sm leading-relaxed dark:bg-ink-800/60">
+          <div className="mt-4 rounded-xl bg-sunken p-4 text-sm leading-relaxed">
             <p className="mb-1 font-medium">Explicación</p>
             <p className="whitespace-pre-line">{ev.explanation}</p>
           </div>
         )}
         {ev.references.length > 0 && (
-          <details className="mt-3 text-sm">
-            <summary className="cursor-pointer text-ink-500">Fuente en tu material ({ev.references.length})</summary>
+          <details className="mt-3 text-sm" open={ev.verdict !== "CORRECT"}>
+            <summary className="cursor-pointer text-muted">Volver a la fuente ({ev.references.length})</summary>
             <ul className="mt-2 space-y-1 text-xs">
               {ev.references.map((r) => (
-                <li key={r.claimId} className="border-l-2 border-accent-200 pl-2">{r.text}{r.page ? <span className="text-ink-500"> — pág. {r.page}</span> : null}</li>
+                <li key={r.claimId} className="border-l-2 border-accent-200 pl-2">
+                  {r.text}
+                  {r.source ? (
+                    <Link
+                      href={r.source.kind === "NOTE" ? `/app/notebooks/page/${r.source.pageId}` : `/app/documents/${r.source.documentId}${r.chunkId ? `#chunk-${r.chunkId}` : ""}`}
+                      className="ml-1 text-accent-700 underline dark:text-accent-300"
+                    >
+                      {r.source.kind === "NOTE" ? `Tus apuntes · ${r.source.title}` : `${r.source.title}${r.page ? `, pág. ${r.page}` : ""}`}
+                    </Link>
+                  ) : r.page ? (
+                    <span className="text-muted"> — pág. {r.page}</span>
+                  ) : null}
+                </li>
               ))}
             </ul>
           </details>
         )}
-        {ev.nextRecommendation && <p className="mt-3 text-xs text-ink-500">Siguiente paso sugerido: {ev.nextRecommendation}</p>}
+        {ev.nextRecommendation && <p className="mt-3 text-xs text-muted">Siguiente paso sugerido: {ev.nextRecommendation}</p>}
       </Card>
       {result.memory && (
-        <p className="text-center text-sm text-ink-500">
+        <p className="text-center text-sm text-muted">
           {GRADE_LABEL[result.memory.grade]} · próximo repaso {relativeDue(result.memory.dueAt)}
         </p>
       )}
@@ -332,19 +359,19 @@ function SessionSummary({ view }: { view: SessionView }) {
     <div className="animate-fade-in space-y-4">
       <Card className="text-center">
         <h1 className="text-xl font-semibold">Sesión completada</h1>
-        <p className="mt-1 text-sm text-ink-500">
+        <p className="mt-1 text-sm text-muted">
           {done.length} actividades · recuperación en el primer intento: {avgFirst === null ? "—" : `${Math.round(avgFirst * 100)}%`}
         </p>
-        <p className="mt-2 text-xs text-ink-500">Lo que hoy te costó volverá antes; lo que recordaste bien se espaciará más.</p>
+        <p className="mt-2 text-xs text-muted">Lo que hoy te costó volverá antes; lo que recordaste bien se espaciará más.</p>
       </Card>
       <Card>
-        <ul className="divide-y divide-ink-100 text-sm dark:divide-ink-800">
+        <ul className="divide-y divide-line text-sm">
           {view.summary.map((s) => (
             <li key={s.itemId} className="flex items-center justify-between gap-3 py-2">
               <span>
-                {s.conceptName} <span className="text-xs text-ink-500">· {ACTIVITY_LABELS[s.type]}</span>
+                {s.conceptName} <span className="text-xs text-muted">· {ACTIVITY_LABELS[s.type]}</span>
               </span>
-              <span className="tabular-nums text-ink-500">
+              <span className="tabular-nums text-muted">
                 {s.state === "SKIPPED" ? "saltada" : s.firstScore === null ? "—" : `${Math.round(s.firstScore * 100)}% → ${Math.round((s.finalScore ?? 0) * 100)}%`}
               </span>
             </li>

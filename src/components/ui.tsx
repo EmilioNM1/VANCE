@@ -4,80 +4,112 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 export { clsx };
 
-type Variant = "primary" | "secondary" | "ghost" | "danger";
+type Variant = "primary" | "secondary" | "ghost" | "danger" | "quiet";
 const variants: Record<Variant, string> = {
-  primary: "bg-accent-600 text-white hover:bg-accent-700 shadow-sm disabled:bg-accent-400",
-  secondary:
-    "bg-white text-ink-800 border border-ink-200 hover:bg-ink-50 dark:bg-ink-900 dark:text-ink-100 dark:border-ink-700 dark:hover:bg-ink-800",
-  ghost: "text-ink-600 hover:bg-ink-100 dark:text-ink-300 dark:hover:bg-ink-800",
+  primary: "bg-accent-600 text-white hover:bg-accent-700 active:bg-accent-800 disabled:bg-accent-600/60 dark:bg-accent-500 dark:hover:bg-accent-400 dark:text-ink-950",
+  secondary: "border border-line bg-surface text-text hover:bg-sunken active:bg-sunken",
+  ghost: "text-muted hover:bg-sunken hover:text-text",
+  quiet: "text-accent-700 hover:bg-accent-50 dark:text-accent-300 dark:hover:bg-accent-900/40",
   danger: "bg-rose-600 text-white hover:bg-rose-700 disabled:bg-rose-400",
 };
+const sizes = { sm: "h-8 px-3 text-[13px]", md: "h-9 px-3.5 text-sm", lg: "h-11 px-5 text-[15px]" };
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70";
+  "inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-lg font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
-export function Button({ variant = "primary", className, loading, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; loading?: boolean }) {
+export function Button({
+  variant = "primary",
+  size = "md",
+  className,
+  loading,
+  children,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: keyof typeof sizes; loading?: boolean }) {
   return (
-    <button className={clsx(base, variants[variant], className)} disabled={loading || props.disabled} {...props}>
+    <button className={clsx(base, sizes[size], variants[variant], className)} disabled={loading || props.disabled} {...props}>
       {loading && <Spinner className="h-4 w-4" />}
       {children}
     </button>
   );
 }
 
-export function ButtonLink({ href, variant = "primary", className, children }: { href: string; variant?: Variant; className?: string; children: ReactNode }) {
+export function ButtonLink({ href, variant = "primary", size = "md", className, children }: { href: string; variant?: Variant; size?: keyof typeof sizes; className?: string; children: ReactNode }) {
   return (
-    <Link href={href} className={clsx(base, variants[variant], className)}>
+    <Link href={href} className={clsx(base, sizes[size], variants[variant], className)}>
       {children}
     </Link>
   );
 }
 
+/** Botón cuadrado con icono; siempre con etiqueta accesible. */
+export function IconButton({ label, active, className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string; active?: boolean }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      aria-pressed={active}
+      className={clsx(
+        "inline-flex h-8 min-w-8 items-center justify-center rounded-md px-1.5 text-muted transition-colors hover:bg-sunken hover:text-text disabled:opacity-40",
+        active && "bg-accent-50 text-accent-700 dark:bg-accent-900/50 dark:text-accent-200",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={clsx("rounded-2xl border border-ink-100 bg-white p-5 shadow-card dark:border-ink-800 dark:bg-ink-900", className)}>{children}</div>;
+  return <div className={clsx("rounded-xl border border-line bg-surface p-5", className)}>{children}</div>;
 }
 
 export function PageHeader({ title, subtitle, actions, back }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; back?: { href: string; label: string } }) {
   return (
-    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
         {back && (
-          <Link href={back.href} className="mb-1 inline-block text-sm text-ink-500 hover:text-accent-600">
+          <Link href={back.href} className="mb-2 inline-flex items-center gap-1 text-sm text-muted hover:text-accent-700">
             ← {back.label}
           </Link>
         )}
-        <h1 className="text-2xl font-semibold tracking-tight text-ink-900 dark:text-white">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-ink-500 dark:text-ink-400">{subtitle}</p>}
+        <h1 className="title-serif text-[1.75rem] leading-tight text-text sm:text-[2rem]">{title}</h1>
+        {subtitle && <div className="mt-1.5 text-[15px] text-muted">{subtitle}</div>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>
   );
 }
 
+export function SectionTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="mb-3 flex items-baseline justify-between gap-3">
+      <h2 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-muted">{children}</h2>
+      {action}
+    </div>
+  );
+}
+
 const tones = {
-  neutral: "bg-ink-100 text-ink-700 dark:bg-ink-800 dark:text-ink-200",
-  accent: "bg-accent-100 text-accent-800 dark:bg-accent-900/50 dark:text-accent-200",
-  success: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200",
-  warning: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
-  danger: "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200",
-  info: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200",
+  neutral: "bg-sunken text-muted",
+  accent: "bg-accent-50 text-accent-800 dark:bg-accent-900/50 dark:text-accent-200",
+  success: "bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200",
+  warning: "bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200",
+  danger: "bg-rose-50 text-rose-800 dark:bg-rose-900/30 dark:text-rose-200",
+  info: "bg-sky-50 text-sky-800 dark:bg-sky-900/30 dark:text-sky-200",
 };
 export type Tone = keyof typeof tones;
 
 export function Badge({ tone = "neutral", children, className }: { tone?: Tone; children: ReactNode; className?: string }) {
-  return <span className={clsx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium", tones[tone], className)}>{children}</span>;
+  return <span className={clsx("inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium", tones[tone], className)}>{children}</span>;
 }
 
 export function Alert({ tone = "info", title, children }: { tone?: Exclude<Tone, "neutral" | "accent">; title?: string; children: ReactNode }) {
-  const t = {
-    info: "border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100",
-    success: "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100",
-    warning: "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100",
-    danger: "border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-100",
-  }[tone];
+  const bar = { info: "border-sky-400", success: "border-emerald-500", warning: "border-amber-400", danger: "border-rose-500" }[tone];
   return (
-    <div role={tone === "danger" ? "alert" : "status"} className={clsx("rounded-xl border px-4 py-3 text-sm", t)}>
+    <div role={tone === "danger" ? "alert" : "status"} className={clsx("rounded-lg border border-line border-l-[3px] bg-surface px-4 py-3 text-sm text-text", bar)}>
       {title && <p className="mb-0.5 font-semibold">{title}</p>}
-      <div className="leading-relaxed">{children}</div>
+      <div className="leading-relaxed text-text/85">{children}</div>
     </div>
   );
 }
@@ -85,8 +117,8 @@ export function Alert({ tone = "info", title, children }: { tone?: Exclude<Tone,
 export function Spinner({ className }: { className?: string }) {
   return (
     <svg className={clsx("animate-spin", className ?? "h-5 w-5")} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity=".25" strokeWidth="4" />
-      <path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity=".2" strokeWidth="3" />
+      <path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
     </svg>
   );
 }
@@ -95,31 +127,34 @@ export function Progress({ value, className, tone = "accent", label }: { value: 
   const color = { accent: "bg-accent-500", success: "bg-emerald-500", warning: "bg-amber-500" }[tone];
   const v = Math.max(0, Math.min(100, value));
   return (
-    <div className={clsx("h-2 w-full overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800", className)} role="progressbar" aria-valuenow={Math.round(v)} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
+    <div className={clsx("h-1.5 w-full overflow-hidden rounded-full bg-sunken", className)} role="progressbar" aria-valuenow={Math.round(v)} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
       <div className={clsx("h-full rounded-full transition-all", color)} style={{ width: `${v}%` }} />
     </div>
   );
 }
 
-export function EmptyState({ title, children, action }: { title: string; children?: ReactNode; action?: ReactNode }) {
+export function EmptyState({ title, children, action, icon }: { title: string; children?: ReactNode; action?: ReactNode; icon?: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-dashed border-ink-200 px-6 py-10 text-center dark:border-ink-700">
-      <p className="font-medium text-ink-800 dark:text-ink-100">{title}</p>
-      {children && <div className="mx-auto mt-1 max-w-md text-sm text-ink-500">{children}</div>}
-      {action && <div className="mt-4">{action}</div>}
+    <div className="rounded-xl border border-dashed border-line px-6 py-12 text-center">
+      {icon && <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-sunken text-muted">{icon}</div>}
+      <p className="font-medium text-text">{title}</p>
+      {children && <div className="mx-auto mt-1 max-w-md text-sm text-muted">{children}</div>}
+      {action && <div className="mt-5">{action}</div>}
     </div>
   );
 }
 
 export function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: ReactNode }) {
   return (
-    <div className="rounded-xl bg-ink-50 p-4 dark:bg-ink-800/60">
-      <p className="text-xs font-medium uppercase tracking-wide text-ink-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums text-ink-900 dark:text-white">{value}</p>
-      {hint && <p className="mt-0.5 text-xs text-ink-500">{hint}</p>}
+    <div className="rounded-lg border border-line bg-surface px-4 py-3">
+      <p className="text-xs font-medium text-muted">{label}</p>
+      <p className="mt-0.5 font-serif text-2xl font-semibold tabular-nums text-text">{value}</p>
+      {hint && <p className="mt-0.5 text-xs text-muted">{hint}</p>}
     </div>
   );
 }
+
+// ───────────────────────────── Etiquetas de estado ─────────────────────────────
 
 export const MASTERY_LABEL: Record<string, { label: string; tone: Tone }> = {
   NEW: { label: "Pendiente", tone: "neutral" },
@@ -156,4 +191,15 @@ export function relativeDue(d: Date | string | null | undefined) {
   const days = Math.round(abs / 86400000);
   const txt = mins < 60 ? `${mins} min` : hours < 36 ? `${hours} h` : `${days} días`;
   return diff <= 0 ? `vencido hace ${txt}` : `en ${txt}`;
+}
+
+export function relativeTime(d: Date | string | null | undefined) {
+  if (!d) return "";
+  const date = typeof d === "string" ? new Date(d) : d;
+  const s = Math.round((Date.now() - date.getTime()) / 1000);
+  if (s < 60) return "hace un momento";
+  if (s < 3600) return `hace ${Math.round(s / 60)} min`;
+  if (s < 86400) return `hace ${Math.round(s / 3600)} h`;
+  if (s < 7 * 86400) return `hace ${Math.round(s / 86400)} días`;
+  return formatDate(date);
 }
