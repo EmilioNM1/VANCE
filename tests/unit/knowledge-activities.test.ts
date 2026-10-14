@@ -69,6 +69,7 @@ describe("generación de actividades", () => {
     const segs = a.payload!.segments!;
     expect(segs.filter((s) => s.type === "blank")).toHaveLength(2);
     expect(JSON.stringify(segs)).not.toMatch(/troponina|calcio/);
+    expect(a.prompt).not.toMatch(/troponina/i);
   });
 
   it("reconocimiento requiere distractores reales", () => {
@@ -77,7 +78,7 @@ describe("generación de actividades", () => {
       { id: "c2", name: "Tropomiosina", kind: "CONCEPT" },
       { id: "c3", name: "Actina", kind: "CONCEPT" },
     ], [{ id: "k", text: "t", chunkId: "x" }])!;
-    expect(r.prompt).not.toMatch(/Troponina/i.source === "x" ? /x/ : /La troponina fija/);
+    expect(r.prompt).not.toMatch(/troponina/i);
     expect(r.prompt).toContain("____");
   });
 

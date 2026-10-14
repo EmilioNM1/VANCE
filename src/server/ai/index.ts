@@ -2,7 +2,7 @@ import { and, eq, gte, sql } from "drizzle-orm";
 import { withUser } from "@/db/client";
 import { aiUsage } from "@/db/schema";
 import { AnthropicProvider } from "./anthropic";
-import { AiBudgetExceededError, AiNotConfiguredError } from "./errors";
+import { AiBudgetExceededError, AiNotConfiguredError, AiOutputError } from "./errors";
 import type { AiProvider, StructuredRequest, StructuredResponse } from "./provider";
 
 let override: AiProvider | null | undefined;
@@ -40,7 +40,14 @@ export async function aiStructured<T>(req: StructuredRequest<T>): Promise<Struct
   if (!provider) throw new AiNotConfiguredError();
   const budget = Number(process.env.AI_DAILY_TOKEN_BUDGET_PER_USER ?? 0);
   if (budget > 0 && (await tokensUsedToday(req.userId)) >= budget) throw new AiBudgetExceededError();
-  const res = await provider.structured(req);
+  let res: StructuredResponse<T>;
+  try {
+    res = await provider.structured(req);
+  } catch (e) {
+    // Una salida mal formada (p. ej. un valor fuera de la lista permitida) se reintenta una vez
+    if (!(e instanceof AiOutputError) || /declinó/.test(e.message)) throw e;
+    res = await provider.structured(req);
+  }
   await withUser(req.userId, (tx) =>
     tx.insert(aiUsage).values({
       userId: req.userId,

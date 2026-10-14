@@ -7,15 +7,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "worker": "tsx src/worker/index.ts",
+    "worker": "tsx --env-file-if-exists=.env src/worker/index.ts",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/db/migrate.ts",
-    "db:seed-demo": "tsx src/db/seed-demo.ts",
+    "db:migrate": "tsx --env-file-if-exists=.env src/db/migrate.ts",
+    "db:seed-demo": "tsx --env-file-if-exists=.env src/db/seed-demo.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "setup": "npm run db:migrate && npm run db:seed-demo"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
@@ -51,5 +52,8 @@
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=22.9"
   }
 }

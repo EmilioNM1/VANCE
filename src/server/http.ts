@@ -44,6 +44,8 @@ function toResponse(e: unknown) {
     return NextResponse.json({ error: e.issues[0]?.message ?? "Datos no válidos", code: "INVALID_INPUT" }, { status: 400 });
   if (e instanceof AiBudgetExceededError) return NextResponse.json({ error: e.message, code: "AI_BUDGET" }, { status: 429 });
   if (e instanceof AiUnavailableError) return NextResponse.json({ error: e.message, code: "AI_UNAVAILABLE" }, { status: 503 });
+  const pg = e as { code?: string; cause?: { code?: string } };
+  if (pg?.code === "22P02" || pg?.cause?.code === "22P02") return NextResponse.json({ error: "Recurso no encontrado", code: "NOT_FOUND" }, { status: 404 });
   console.error(e);
   return NextResponse.json({ error: "Error interno. Inténtalo de nuevo.", code: "INTERNAL" }, { status: 500 });
 }

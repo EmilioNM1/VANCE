@@ -58,7 +58,7 @@ export async function exportUserData(userId: string) {
   const profile = await getProfile(userId);
   const data = await withUser(userId, async (tx) => ({
     libraries: await tx.select().from(libraries),
-    documents: (await tx.select().from(documents)).map(({ storageKey: _k, ...d }) => d),
+    documents: (await tx.select().from(documents)).map((d) => ({ ...d, storageKey: undefined })),
     claims: await tx.select().from(claims),
     concepts: await tx.select().from(concepts),
     mastery: await tx.select().from(conceptMastery),

@@ -2,7 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { withUser } from "@/db/client";
 import { activities, chunks, claims, conceptClaims, conceptRelations, concepts, type ActivityType } from "@/db/schema";
-import type { ActivityPayload, AnswerKey, ConceptDetails, Rubric, RubricElement } from "@/lib/types";
+import type { ActivityPayload, ConceptDetails, Rubric, RubricElement } from "@/lib/types";
 import { aiConfigured, aiStructured } from "../ai";
 
 type ConceptRow = typeof concepts.$inferSelect;
@@ -145,7 +145,10 @@ export function buildCloze(concept: Pick<ConceptRow, "id" | "name" | "details">,
   return {
     conceptId: concept.id,
     type: "CLOZE",
-    prompt: `Completa la información que falta sobre «${concept.name}» sin consultar el material.`,
+    // El enunciado no nombra el concepto si es uno de los huecos (sería dar la respuesta)
+    prompt: answers.some((a) => a.toLowerCase() === concept.name.toLowerCase())
+      ? "Completa la información que falta sin consultar el material."
+      : `Completa la información que falta sobre «${concept.name}» sin consultar el material.`,
     payload: { segments, instructions: "Escribe en cada hueco el término que falta." },
     answerKey: { blanks },
     rubric: {

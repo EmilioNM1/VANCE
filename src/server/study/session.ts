@@ -239,7 +239,7 @@ export interface ItemView {
     prompt: string;
     payload: ActivityRow["payload"];
     conceptId: string;
-    conceptName: string;
+    conceptName: string | null;
     documentTitle: string;
   };
   hints: { level: number; text: string }[];
@@ -321,7 +321,16 @@ async function buildItemView(tx: Tx, userId: string, item: typeof sessionItems.$
     maxHintLevel: item.noHints ? 0 : settings.maxHintLevel,
     attemptsCount: item.attemptsCount,
     explanationShown: item.explanationShown,
-    activity: { id: a.id, type: a.type, prompt: a.prompt, payload: a.payload, conceptId: a.conceptId, conceptName: row!.conceptName, documentTitle: row!.documentTitle },
+    // En reconocimiento y huecos el nombre del concepto ES la respuesta: no se envía hasta terminar
+    activity: {
+      id: a.id,
+      type: a.type,
+      prompt: a.prompt,
+      payload: a.payload,
+      conceptId: a.conceptId,
+      conceptName: (a.type === "RECOGNITION" || a.type === "CLOZE") && item.state !== "DONE" ? null : row!.conceptName,
+      documentTitle: row!.documentTitle,
+    },
     hints: hints.filter((h) => h.level < 4).map((h) => ({ level: h.level, text: h.text })),
     explanation: item.explanationShown ? (hints.find((h) => h.level === 4)?.text ?? a.rubric.explanation) : null,
     lastEvaluation: last ? { ...sanitizeEvaluation(last.e.result, reveal), provisional: last.e.provisional, method: last.e.method } : null,

@@ -7,10 +7,15 @@ import { decideClaim } from "@/server/verification/review";
 import { getSessionView, requestHint, submitAttempt } from "@/server/study/session";
 import { deleteAccount } from "@/server/account";
 import { makeUser } from "../helpers/db";
+import { checkRlsEffective } from "@/db/safety";
 
 const randomId = "00000000-0000-4000-8000-000000000000";
 
 describe("aislamiento de datos entre usuarios", () => {
+  it("el rol de conexión de las pruebas no puede saltarse RLS", async () => {
+    expect((await checkRlsEffective()).ok).toBe(true);
+  });
+
   it("Row Level Security: sin usuario fijado no se ve nada; con otro usuario tampoco", async () => {
     const a = await makeUser("A");
     const b = await makeUser("B");

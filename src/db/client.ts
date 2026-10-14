@@ -7,7 +7,6 @@ export type DB = NodePgDatabase<typeof schema>;
 export type Tx = Parameters<Parameters<DB["transaction"]>[0]>[0];
 
 declare global {
-  // eslint-disable-next-line no-var
   var __vancePool: Pool | undefined;
 }
 
