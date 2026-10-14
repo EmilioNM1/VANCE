@@ -132,7 +132,7 @@ export function Spinner({ className }: { className?: string }) {
 }
 
 export function Progress({ value, className, tone = "accent", label }: { value: number; className?: string; tone?: "accent" | "success" | "warning"; label?: string }) {
-  const color = { accent: "bg-gradient-to-r from-accent-400 to-accent-600", success: "bg-emerald-500", warning: "bg-amber-500" }[tone];
+  const color = { accent: "bg-accent-500", success: "bg-emerald-500", warning: "bg-amber-500" }[tone];
   const v = Math.max(0, Math.min(100, value));
   return (
     <div className={clsx("h-1.5 w-full overflow-hidden rounded-full bg-sunken", className)} role="progressbar" aria-valuenow={Math.round(v)} aria-valuemin={0} aria-valuemax={100} aria-label={label}>

@@ -66,9 +66,7 @@ export default async function Home() {
       </header>
 
       {/* Acción principal: el único bloque de color intenso de la pantalla */}
-      <section aria-labelledby="continuar" className="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-accent-500 via-accent-600 to-accent-800 p-6 text-white shadow-glow sm:mb-8 sm:p-8">
-        <div aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-44 w-44 rounded-full bg-coral-400/40 blur-2xl" />
-        <div aria-hidden className="pointer-events-none absolute -bottom-16 left-1/3 h-40 w-40 rounded-full bg-accent-300/30 blur-2xl" />
+      <section aria-labelledby="continuar" className="relative mb-6 overflow-hidden rounded-3xl bg-accent-600 p-6 text-white shadow-float sm:mb-8 sm:p-8">
         <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium backdrop-blur">

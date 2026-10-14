@@ -102,7 +102,7 @@ export function AppShell({ userName, notebooks, due, children }: { userName: str
           </Link>
           <ThemeToggle compact />
         </div>
-        <button onClick={create} disabled={busy} className="mb-5 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-accent-500 to-accent-700 px-3 py-2.5 text-sm font-semibold text-white shadow-glow transition hover:brightness-110">
+        <button onClick={create} disabled={busy} className="mb-5 flex items-center justify-center gap-2 rounded-xl bg-accent-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-700">
           {busy ? <Spinner className="h-4 w-4" /> : <Plus className="h-4 w-4" />} Nueva página
         </button>
         <nav className="flex flex-col gap-0.5" aria-label="Principal">
@@ -137,7 +137,7 @@ export function AppShell({ userName, notebooks, due, children }: { userName: str
         <Link href="/app" className="mb-3" aria-label="Inicio">
           <Logo mark />
         </Link>
-        <button onClick={create} disabled={busy} className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-accent-500 to-accent-700 text-white shadow-glow hover:brightness-110" aria-label="Nueva página" title="Nueva página">
+        <button onClick={create} disabled={busy} className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-accent-600 text-white shadow-sm hover:bg-accent-700" aria-label="Nueva página" title="Nueva página">
           {busy ? <Spinner className="h-4 w-4" /> : <Plus className="h-[18px] w-[18px]" />}
         </button>
         <nav className="flex flex-col gap-1" aria-label="Principal">
@@ -167,7 +167,7 @@ export function AppShell({ userName, notebooks, due, children }: { userName: str
                 onClick={create}
                 disabled={busy}
                 aria-label="Nueva página"
-                className="-mt-5 mb-1.5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-accent-400 to-accent-700 text-white shadow-glow ring-4 ring-paper transition active:scale-95"
+                className="-mt-5 mb-1.5 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-600 text-white shadow-float ring-4 ring-paper transition active:scale-95 active:bg-accent-700"
               >
                 {busy ? <Spinner className="h-5 w-5" /> : <Plus className="h-6 w-6" strokeWidth={2.2} />}
               </button>

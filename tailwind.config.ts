@@ -72,7 +72,6 @@ export default {
         card: "0 1px 2px rgb(20 26 46 / .04), 0 2px 8px rgb(20 26 46 / .03)",
         float: "0 12px 32px rgb(20 26 46 / .12), 0 2px 6px rgb(20 26 46 / .06)",
         paper: "0 1px 3px rgb(20 26 46 / .06), 0 12px 40px rgb(20 26 46 / .06)",
-        glow: "0 8px 24px -6px rgb(53 73 239 / .40)",
       },
       keyframes: {
         "fade-in": { from: { opacity: "0", transform: "translateY(3px)" }, to: { opacity: "1", transform: "none" } },
