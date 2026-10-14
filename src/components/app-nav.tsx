@@ -134,8 +134,8 @@ export function AppShell({ userName, notebooks, due, children }: { userName: str
         </div>
       </aside>
 
-      {/* Móvil: barra inferior (oculta mientras se escribe) */}
-      {!writing && (
+      {/* Móvil: barra inferior (oculta mientras se escribe o se estudia) */}
+      {!focus && (
         <nav
           className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
           aria-label="Principal móvil"
@@ -151,7 +151,7 @@ export function AppShell({ userName, notebooks, due, children }: { userName: str
       )}
 
       <div className={clsx(focus ? "md:pl-16" : "md:pl-16 lg:pl-60")}>
-        {!writing && (
+        {!focus && (
           <header className="sticky top-0 z-20 flex items-center justify-between border-b border-line bg-paper/90 px-4 py-2.5 backdrop-blur md:hidden">
             <Link href="/app" className="text-text">
               <Logo />

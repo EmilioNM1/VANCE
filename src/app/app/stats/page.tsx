@@ -46,7 +46,7 @@ export default async function StatsPage() {
   return (
     <Page wide>
       <PageHeader title="Progreso" subtitle="Rendimiento observado en tus actividades. No es una medida directa de tu memoria biológica." />
-      <div className="grid gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Conceptos" value={s.totalConcepts} hint={`${s.byState.MASTERED} parecen dominados`} />
         <Stat label="Hoy" value={`${s.goals.itemsToday}/${s.goals.dailyReviewGoal}`} hint="actividades vs objetivo" />
         <Stat label="Esta semana" value={`${s.time.weekMinutes} min`} hint={`objetivo ${s.goals.weeklyMinutesGoal} min`} />

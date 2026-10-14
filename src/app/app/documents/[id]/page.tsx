@@ -65,7 +65,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
             </Badge>
           )}
         </div>
-        <ol className="grid gap-2 sm:grid-cols-4">
+        <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {STEPS.map((s, i) => {
             const done = s.done.includes(d.status);
             return (

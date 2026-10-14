@@ -12,9 +12,10 @@ const variants: Record<Variant, string> = {
   quiet: "text-accent-700 hover:bg-accent-50 dark:text-accent-300 dark:hover:bg-accent-900/40",
   danger: "bg-rose-600 text-white hover:bg-rose-700 disabled:bg-rose-400",
 };
-const sizes = { sm: "h-8 px-3 text-[13px]", md: "h-9 px-3.5 text-sm", lg: "h-11 px-5 text-[15px]" };
+// En pantallas táctiles los botones son algo más altos (objetivo ≥ 40 px) y el texto largo pasa a otra línea en vez de salirse
+const sizes = { sm: "min-h-9 px-3 py-1 text-[13px] sm:min-h-8", md: "min-h-10 px-3.5 py-1.5 text-sm sm:min-h-9", lg: "min-h-12 px-5 py-2 text-[15px] sm:min-h-11" };
 const base =
-  "inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-lg font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex max-w-full select-none items-center justify-center gap-2 rounded-lg text-center font-medium leading-tight transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
 export function Button({
   variant = "primary",
@@ -49,7 +50,7 @@ export function IconButton({ label, active, className, children, ...props }: But
       title={label}
       aria-pressed={active}
       className={clsx(
-        "inline-flex h-8 min-w-8 items-center justify-center rounded-md px-1.5 text-muted transition-colors hover:bg-sunken hover:text-text disabled:opacity-40",
+        "inline-flex h-10 min-w-10 items-center justify-center rounded-md px-1.5 text-muted md:h-8 md:min-w-8 transition-colors hover:bg-sunken hover:text-text disabled:opacity-40",
         active && "bg-accent-50 text-accent-700 dark:bg-accent-900/50 dark:text-accent-200",
         className,
       )}
@@ -61,7 +62,7 @@ export function IconButton({ label, active, className, children, ...props }: But
 }
 
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={clsx("rounded-xl border border-line bg-surface p-5", className)}>{children}</div>;
+  return <div className={clsx("rounded-xl border border-line bg-surface p-4 sm:p-5", className)}>{children}</div>;
 }
 
 export function PageHeader({ title, subtitle, actions, back }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; back?: { href: string; label: string } }) {
@@ -69,8 +70,8 @@ export function PageHeader({ title, subtitle, actions, back }: { title: ReactNod
     <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
         {back && (
-          <Link href={back.href} className="mb-2 inline-flex items-center gap-1 text-sm text-muted hover:text-accent-700">
-            ← {back.label}
+          <Link href={back.href} className="mb-2 inline-flex max-w-full items-center gap-1 text-sm text-muted hover:text-accent-700">
+            ← <span className="truncate">{back.label}</span>
           </Link>
         )}
         <h1 className="title-serif text-[1.75rem] leading-tight text-text sm:text-[2rem]">{title}</h1>
@@ -101,7 +102,7 @@ const tones = {
 export type Tone = keyof typeof tones;
 
 export function Badge({ tone = "neutral", children, className }: { tone?: Tone; children: ReactNode; className?: string }) {
-  return <span className={clsx("inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium", tones[tone], className)}>{children}</span>;
+  return <span className={clsx("inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-xs font-medium", tones[tone], className)}>{children}</span>;
 }
 
 export function Alert({ tone = "info", title, children }: { tone?: Exclude<Tone, "neutral" | "accent">; title?: string; children: ReactNode }) {

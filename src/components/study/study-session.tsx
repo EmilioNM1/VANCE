@@ -212,7 +212,7 @@ function ItemRunner({ item, reload, onDone }: { item: ItemView; reload: () => Pr
       )}
 
       {!(postExplanation && showExplanation) && (
-        <Card>
+        <Card className="max-sm:border-0 max-sm:bg-transparent max-sm:p-0">
           {isOpen && <OpenAnswer value={text} onChange={setText} onVoiceUsed={() => setVoice(true)} minWords={a.payload.minWords} disabled={!!busy} placeholder={postExplanation ? "Explícalo de nuevo con tus palabras, sin mirar." : undefined} />}
           {a.type === "PROCESS_ORDER" && (
             <>
@@ -237,7 +237,7 @@ function ItemRunner({ item, reload, onDone }: { item: ItemView; reload: () => Pr
             </div>
           )}
           {error && <div className="mt-3"><Alert tone="danger">{error}</Alert></div>}
-          <div className="mt-5 flex flex-wrap items-center gap-2">
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center [&>button]:w-full sm:[&>button]:w-auto">
             <Button onClick={submit} loading={busy === "submit"} disabled={!canSubmit || !!busy}>
               {busy === "submit" && isOpen ? "Evaluando…" : item.attemptsCount === 0 ? "Comprobar" : "Comprobar de nuevo"}
             </Button>
@@ -346,7 +346,7 @@ function ResultPanel({ item, result, onNext }: { item: ItemView; result: SubmitR
         </p>
       )}
       <div className="flex justify-center">
-        <Button onClick={onNext} className="px-8">Siguiente</Button>
+        <Button onClick={onNext} className="w-full px-8 sm:w-auto">Siguiente</Button>
       </div>
     </div>
   );

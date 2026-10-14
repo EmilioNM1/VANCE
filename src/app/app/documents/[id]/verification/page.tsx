@@ -39,7 +39,7 @@ export default async function VerificationPage({ params, searchParams }: { param
         <EmptyState title="La auditoría aún no ha terminado">Vuelve cuando el documento esté en «Revisión pendiente».</EmptyState>
       ) : (
         <>
-          <div className="mb-4 grid gap-3 sm:grid-cols-4">
+          <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label="Verificadas" value={count("VERIFIED")} hint="con fuente comprobada" />
             <Stat label="Requieren revisión" value={count("NEEDS_REVIEW")} />
             <Stat label="Correcciones" value={count("CORRECTION")} />
@@ -63,7 +63,7 @@ export default async function VerificationPage({ params, searchParams }: { param
               />
             </Card>
           )}
-          <div className="mb-4 mt-4 flex gap-1 overflow-x-auto border-b border-line" role="tablist">
+          <div className="-mx-4 mb-4 mt-4 flex gap-1 overflow-x-auto border-b border-line px-4 sm:mx-0 sm:px-0" role="tablist">
             {TABS.map((t) => (
               <Link
                 key={t.key}

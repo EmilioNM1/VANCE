@@ -180,7 +180,7 @@ export function NoteWorkspace(props: WorkspaceProps) {
       <div className="flex min-w-0 flex-1">
         <div className="min-w-0 flex-1">
           {/* Cabecera: ruta, estado de guardado y acciones */}
-          <header className="no-print sticky top-0 z-30 flex h-[3.25rem] items-center gap-1 border-b border-line bg-paper/95 px-2 pt-[env(safe-area-inset-top)] backdrop-blur sm:px-3">
+          <header className="no-print sticky top-0 z-30 flex h-[3.25rem] items-center gap-1 border-b border-line bg-paper/95 px-2 pt-[env(safe-area-inset-top)] backdrop-blur sm:px-3" style={{ paddingLeft: "max(0.75rem, env(safe-area-inset-left))", paddingRight: "max(0.75rem, env(safe-area-inset-right))" }}>
             <Link href={`/app/notebooks/${props.notebook.id}`} className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-sunken md:hidden" aria-label="Volver al cuaderno">
               <ChevronLeft className="h-5 w-5" />
             </Link>
@@ -322,7 +322,7 @@ export function NoteWorkspace(props: WorkspaceProps) {
           )}
 
           <div className="pb-32 md:pb-24">
-            <div className={clsx("mx-auto px-4 pt-8 sm:px-6", paper ? "max-w-[52rem] lg:px-[4.5rem]" : "max-w-[46rem]")}>
+            <div className={clsx("mx-auto px-5 pt-6 sm:px-6 sm:pt-8", paper ? "max-w-[52rem] lg:px-[4.5rem]" : "max-w-[46rem]")}>
               <label htmlFor="page-title" className="sr-only">Título de la página</label>
               <textarea
                 id="page-title"
@@ -357,7 +357,7 @@ export function NoteWorkspace(props: WorkspaceProps) {
                 setSelectionRequest(text);
               }}
             />
-            <footer className="no-print mx-auto mt-6 flex max-w-[46rem] flex-wrap items-center gap-x-4 gap-y-1 px-4 text-xs text-muted">
+            <footer className="no-print mx-auto mt-6 flex max-w-[46rem] flex-wrap items-center gap-x-4 gap-y-1 px-5 text-xs text-muted">
               <span>{editor ? `${editor.storage.characterCount.words()} palabras` : ""}</span>
               {lastSavedAt && <span>Guardado {relativeTime(lastSavedAt)}</span>}
               {stale && props.aiEnabled && (

@@ -18,6 +18,7 @@ export default defineConfig({
   projects: [
     { name: "desktop", use: { viewport: { width: 1280, height: 860 } }, testIgnore: /responsive\.spec\.ts/ },
     { name: "mobile", use: { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }, testMatch: /responsive\.spec\.ts/ },
+    { name: "mobile-small", use: { viewport: { width: 320, height: 640 }, isMobile: true, hasTouch: true }, testMatch: /responsive\.spec\.ts/ },
     { name: "ipad-portrait", use: { viewport: { width: 820, height: 1180 }, hasTouch: true }, testMatch: /responsive\.spec\.ts/ },
     { name: "ipad-landscape", use: { viewport: { width: 1180, height: 820 }, hasTouch: true }, testMatch: /responsive\.spec\.ts/ },
   ],

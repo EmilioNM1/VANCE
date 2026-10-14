@@ -17,13 +17,13 @@ export default async function Landing() {
   if (await getCurrentUser()) redirect("/app");
   return (
     <div className="min-h-screen bg-paper">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-8 sm:py-5">
         <Logo className="text-text" />
-        <nav className="flex items-center gap-2">
-          <Link href="/login" className="rounded-lg px-3 py-2 text-sm font-medium text-muted hover:text-text">
+        <nav className="flex shrink-0 items-center gap-1 sm:gap-2">
+          <Link href="/login" className="whitespace-nowrap rounded-lg px-2.5 py-2 text-sm font-medium text-muted hover:text-text">
             Iniciar sesión
           </Link>
-          <ButtonLink href="/register">Crear cuenta</ButtonLink>
+          <ButtonLink href="/register" size="sm" className="whitespace-nowrap sm:min-h-9 sm:px-3.5 sm:text-sm">Crear cuenta</ButtonLink>
         </nav>
       </header>
       <main className="mx-auto max-w-6xl px-5 sm:px-8">

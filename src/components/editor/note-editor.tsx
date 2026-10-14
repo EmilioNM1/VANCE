@@ -195,13 +195,13 @@ export function NoteEditor({ pageId, initialContent, onChange, onReady, onCheckS
         )}
       </BubbleMenu>
 
-      <div className={clsx("transition-[padding]", paper ? "px-0 py-6 sm:px-6 lg:py-10" : "py-4")}>
+      <div className={clsx("transition-[padding]", paper ? "px-3 py-4 sm:px-6 lg:py-10" : "py-4")}>
         <div
           className={clsx(
             "mx-auto",
             paper
-              ? "max-w-[52rem] rounded-sm bg-surface px-6 py-10 shadow-paper ring-1 ring-line sm:px-[4.5rem] sm:py-16 md:min-h-[calc(100vh-12rem)]"
-              : "max-w-[46rem] px-1 sm:px-2",
+              ? "max-w-[52rem] rounded-sm bg-surface px-5 py-8 shadow-paper ring-1 ring-line sm:px-[4.5rem] sm:py-16 md:min-h-[calc(100vh-12rem)]"
+              : "max-w-[46rem] px-5 sm:px-6",
           )}
         >
           <EditorContent editor={editor} />

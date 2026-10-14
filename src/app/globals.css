@@ -31,6 +31,13 @@
   ::selection {
     @apply bg-accent-200 text-ink-900;
   }
+  /* Un texto largo (títulos truncados, enlaces) nunca ensancha una columna más allá de la pantalla */
+  .grid > * {
+    min-width: 0;
+  }
+  body {
+    overflow-wrap: break-word;
+  }
   :focus-visible {
     @apply outline-none ring-2 ring-accent-500/70 ring-offset-2 ring-offset-paper;
   }

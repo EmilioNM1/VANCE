@@ -57,7 +57,8 @@ export default async function NotebookPage({ params }: { params: Promise<{ id: s
                         <FileText className="h-4 w-4 shrink-0 text-muted" />
                         <span className="min-w-0 flex-1 truncate font-serif text-[16px]">{p.title}</span>
                         <span className="shrink-0 text-xs text-muted">
-                          {p.wordCount} palabras · {relativeTime(p.updatedAt)}
+                          <span className="hidden sm:inline">{p.wordCount} palabras · </span>
+                          {relativeTime(p.updatedAt)}
                         </span>
                       </Link>
                     </li>
@@ -66,7 +67,8 @@ export default async function NotebookPage({ params }: { params: Promise<{ id: s
               )}
             </section>
           ))}
-          <div className="lg:hidden">
+          <div className="rounded-xl border border-line bg-surface py-3 lg:hidden">
+            <p className="px-4 pb-1 text-xs font-medium uppercase tracking-wider text-muted">Organizar secciones y páginas</p>
             <NotebookTree notebook={{ id: notebook.id, title: notebook.title, color: notebook.color }} sections={tree} />
           </div>
         </div>

@@ -40,3 +40,43 @@ test("diseño adaptable: navegación, sin desbordamiento y editor cómodo", asyn
   await expect(panel).toBeVisible();
   if (!mobile) await expect(page.locator(".ProseMirror")).toBeInViewport();
 });
+
+test("móvil: márgenes laterales, nada se sale de la pantalla y la navegación no tapa el estudio", async ({ page }, info) => {
+  const width = page.viewportSize()!.width;
+  test.skip(width >= 768, "solo pantallas de teléfono");
+  await page.goto("/");
+  await noOverflow(page, `${info.project.name} portada`);
+  await loginDemo(page);
+  // Biblioteca → documento → informe → conceptos (títulos largos, insignias y pestañas)
+  await page.goto("/app/library");
+  await page.locator('main a[href^="/app/library/"]').first().click();
+  await page.waitForURL(/\/app\/library\/[0-9a-f-]{36}$/);
+  await noOverflow(page, `${info.project.name} biblioteca`);
+  const doc = (await page.locator('a[href^="/app/documents/"]').first().getAttribute("href"))!;
+  for (const path of [doc, `${doc}/verification`, `${doc}/concepts`]) {
+    await page.goto(path);
+    await noOverflow(page, `${info.project.name} ${path}`);
+  }
+  // Ningún botón del contenido toca el borde de la pantalla
+  const tight = await page.evaluate((w) => [...document.querySelectorAll("main button, main a")].filter((el) => {
+    const b = el.getBoundingClientRect();
+    return b.width > 0 && b.width < w && !el.closest(".overflow-x-auto") && (b.left < 8 || b.right > w - 8);
+  }).map((el) => (el as HTMLElement).innerText.slice(0, 30)), width);
+  expect(tight, "elementos pegados al borde").toEqual([]);
+  // El texto del editor tiene margen lateral
+  await page.goto("/app/notebooks");
+  await page.fill("#new-notebook", `Márgenes ${Date.now()}`);
+  await page.getByRole("button", { name: "Crear y escribir" }).click();
+  await page.waitForSelector(".ProseMirror");
+  await page.locator(".ProseMirror").click();
+  await page.keyboard.type("Un párrafo con margen.");
+  const p = await page.locator(".ProseMirror p").first().boundingBox();
+  expect(p!.x).toBeGreaterThanOrEqual(14);
+  expect(p!.x + p!.width).toBeLessThanOrEqual(width - 14);
+  // En una sesión de estudio la barra inferior no tapa las respuestas
+  await page.goto("/app/reviews");
+  await page.getByRole("button", { name: "Sesión diaria" }).click();
+  await page.waitForURL(/\/app\/study\//);
+  await expect(page.getByRole("navigation", { name: "Principal móvil" })).toHaveCount(0);
+  await noOverflow(page, `${info.project.name} estudio`);
+});
